@@ -18,7 +18,7 @@ export default function Register() {
     setError('');
     setLoading(true);
     try {
-      await api.post('/auth/register', {
+      await api.post('/identity/auth/register', {
         username,
         password,
         email,

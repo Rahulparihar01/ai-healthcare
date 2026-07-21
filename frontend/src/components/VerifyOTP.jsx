@@ -17,7 +17,7 @@ export default function VerifyOTP() {
     setError('');
     setLoading(true);
     try {
-      await api.post('/auth/verify-otp', {
+      await api.post('/identity/verify/email-otp', {
         email: email,
         otp_code: otpCode
       });

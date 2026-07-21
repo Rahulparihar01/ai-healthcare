@@ -30,14 +30,24 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
   return children;
 };
 
+const getDashboardRoute = (role) => {
+  switch (role) {
+    case 'Super Admin': return '/dashboard/super-admin';
+    case 'Hospital Admin': return '/dashboard/hospital-admin';
+    case 'Receptionist': return '/dashboard/receptionist';
+    case 'Patient': return '/dashboard/patient';
+    default: return '/dashboard/doctor';
+  }
+};
+
 function AppRoutes() {
   const { user } = useAuth();
 
   return (
     <Routes>
-      <Route path="/login" element={user ? <Navigate to="/dashboard/doctor" replace /> : <Login />} />
-      <Route path="/register" element={user ? <Navigate to="/dashboard/doctor" replace /> : <Register />} />
-      <Route path="/verify-otp" element={user ? <Navigate to="/dashboard/doctor" replace /> : <VerifyOTP />} />
+      <Route path="/login" element={user ? <Navigate to={getDashboardRoute(user.role)} replace /> : <Login />} />
+      <Route path="/register" element={user ? <Navigate to={getDashboardRoute(user.role)} replace /> : <Register />} />
+      <Route path="/verify-otp" element={user ? <Navigate to={getDashboardRoute(user.role)} replace /> : <VerifyOTP />} />
       
       {/* Protected Routes */}
       <Route 

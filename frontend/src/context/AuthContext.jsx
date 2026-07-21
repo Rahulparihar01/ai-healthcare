@@ -34,14 +34,14 @@ export const AuthProvider = ({ children }) => {
       formData.append('username', username);
       formData.append('password', password);
 
-      const response = await api.post('/auth/token', formData);
+      const response = await api.post('/identity/auth/login', formData);
       
       const { access_token, refresh_token } = response.data;
       localStorage.setItem('access_token', access_token);
       localStorage.setItem('refresh_token', refresh_token);
       
       // Fetch the true user profile from the backend
-      const meResponse = await api.get('/auth/profile');
+      const meResponse = await api.get('/identity/profile/me');
       const userData = meResponse.data;
       
       localStorage.setItem('user', JSON.stringify(userData));
