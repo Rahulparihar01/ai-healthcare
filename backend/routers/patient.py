@@ -11,12 +11,21 @@ from utils import generate_health_id, generate_qr_code
 router = APIRouter(prefix="/patients", tags=["Patients"])
 
 class PatientCreate(BaseModel):
-    user_id: int # The user account this profile belongs to
+    user_id: int
+    full_name: Optional[str] = None
+    dob: Optional[str] = None
+    gender: Optional[str] = None
     blood_group: Optional[str] = None
+    address: Optional[str] = None
     emergency_contact_name: Optional[str] = None
     emergency_contact_phone: Optional[str] = None
-    allergies: List[str] = []
-    personal_details: Dict[str, Any] = {}
+    emergency_contact_relation: Optional[str] = None
+    organ_donor: bool = False
+    known_allergies: List[str] = []
+    chronic_diseases: List[str] = []
+    current_medications: List[str] = []
+    past_surgeries: List[str] = []
+    insurance_details: Dict[str, Any] = {}
 
 class PatientListResponse(BaseModel):
     id: int
@@ -32,15 +41,30 @@ class PatientProfileResponse(BaseModel):
     id: int
     health_id: str
     qr_code_path: str
+    hospital_id: Optional[int]
+    
+    full_name: Optional[str]
+    dob: Optional[str]
+    gender: Optional[str]
     blood_group: Optional[str]
+    address: Optional[str]
+    profile_photo: Optional[str]
+    
     emergency_contact_name: Optional[str]
     emergency_contact_phone: Optional[str]
-    allergies: List[str]
-    personal_details: Dict[str, Any]
-    medical_history: Dict[str, Any]
-    family_history: Dict[str, Any]
+    emergency_contact_relation: Optional[str]
+    organ_donor: bool
+    
+    known_allergies: List[str]
+    chronic_diseases: List[str]
+    current_medications: List[str]
+    past_surgeries: List[str]
     insurance_details: Dict[str, Any]
-    lifestyle: Dict[str, Any]
+    
+    status: str
+    allow_doctor_access: bool
+    allow_hospital_access: bool
+    emergency_access: bool
     
     class Config:
         from_attributes = True
@@ -50,22 +74,47 @@ class PatientFullRegister(BaseModel):
     password: str
     email: str
     phone_number: str = None
+    
+    full_name: Optional[str] = None
+    dob: Optional[str] = None
+    gender: Optional[str] = None
     blood_group: Optional[str] = None
+    address: Optional[str] = None
+    
     emergency_contact_name: Optional[str] = None
     emergency_contact_phone: Optional[str] = None
-    allergies: List[str] = []
-    personal_details: Dict[str, Any] = {}
+    relationship: Optional[str] = None
+    organ_donor: bool = False
+    
+    known_allergies: List[str] = []
+    chronic_diseases: List[str] = []
+    current_medications: List[str] = []
+    past_surgeries: List[str] = []
+    insurance_details: Dict[str, Any] = {}
 
 class PatientProfileUpdate(BaseModel):
+    full_name: Optional[str] = None
+    dob: Optional[str] = None
+    gender: Optional[str] = None
     blood_group: Optional[str] = None
+    address: Optional[str] = None
+    profile_photo: Optional[str] = None
+    
     emergency_contact_name: Optional[str] = None
     emergency_contact_phone: Optional[str] = None
-    allergies: List[str] = None
-    personal_details: Dict[str, Any] = None
-    medical_history: Dict[str, Any] = None
-    family_history: Dict[str, Any] = None
+    emergency_contact_relation: Optional[str] = None
+    organ_donor: Optional[bool] = None
+    
+    known_allergies: List[str] = None
+    chronic_diseases: List[str] = None
+    current_medications: List[str] = None
+    past_surgeries: List[str] = None
     insurance_details: Dict[str, Any] = None
-    lifestyle: Dict[str, Any] = None
+    
+    status: Optional[str] = None
+    allow_doctor_access: Optional[bool] = None
+    allow_hospital_access: Optional[bool] = None
+    emergency_access: Optional[bool] = None
 
 @router.post("/create", response_model=PatientProfileResponse, status_code=status.HTTP_201_CREATED)
 def register_patient(
@@ -89,11 +138,21 @@ def register_patient(
         user_id=user.id,
         health_id=health_id,
         qr_code_path=qr_code_path,
+        hospital_id=current_user.hospital_id if current_user.role != models.RoleEnum.SUPER_ADMIN.value else None,
+        full_name=patient.full_name,
+        dob=patient.dob,
+        gender=patient.gender,
         blood_group=patient.blood_group,
+        address=patient.address,
         emergency_contact_name=patient.emergency_contact_name,
         emergency_contact_phone=patient.emergency_contact_phone,
-        allergies=patient.allergies,
-        personal_details=patient.personal_details
+        emergency_contact_relation=patient.emergency_contact_relation,
+        organ_donor=patient.organ_donor,
+        known_allergies=patient.known_allergies,
+        chronic_diseases=patient.chronic_diseases,
+        current_medications=patient.current_medications,
+        past_surgeries=patient.past_surgeries,
+        insurance_details=patient.insurance_details
     )
     db.add(db_profile)
     db.commit()
@@ -203,11 +262,21 @@ def register_patient_full(
         user_id=db_user.id,
         health_id=health_id,
         qr_code_path=qr_code_path,
+        hospital_id=current_user.hospital_id if current_user.role != models.RoleEnum.SUPER_ADMIN.value else None,
+        full_name=data.full_name,
+        dob=data.dob,
+        gender=data.gender,
         blood_group=data.blood_group,
+        address=data.address,
         emergency_contact_name=data.emergency_contact_name,
         emergency_contact_phone=data.emergency_contact_phone,
-        allergies=data.allergies,
-        personal_details=data.personal_details
+        emergency_contact_relation=data.emergency_contact_relation,
+        organ_donor=data.organ_donor,
+        known_allergies=data.known_allergies,
+        chronic_diseases=data.chronic_diseases,
+        current_medications=data.current_medications,
+        past_surgeries=data.past_surgeries,
+        insurance_details=data.insurance_details
     )
     db.add(db_profile)
     db.commit()

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 
 from database import get_db
 import models
@@ -10,6 +10,7 @@ from auth import RequireRole
 router = APIRouter(prefix="/hospitals", tags=["Hospitals"])
 
 class HospitalCreate(BaseModel):
+    organization_id: Optional[int] = None
     name: str
     address: str
     contact_email: str
@@ -28,6 +29,8 @@ def create_hospital(
     current_user: models.User = Depends(RequireRole([models.RoleEnum.SUPER_ADMIN.value]))
 ):
     db_hospital = models.Hospital(**hospital.model_dump())
+    db_hospital.created_by = current_user.id
+    db_hospital.updated_by = current_user.id
     db.add(db_hospital)
     db.commit()
     db.refresh(db_hospital)
@@ -50,6 +53,8 @@ def update_hospital(
         
     for key, value in hospital.model_dump().items():
         setattr(db_hospital, key, value)
+    
+    db_hospital.updated_by = current_user.id
         
     db.commit()
     db.refresh(db_hospital)

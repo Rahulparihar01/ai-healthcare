@@ -15,7 +15,7 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 30
 REFRESH_TOKEN_EXPIRE_DAYS = 7
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/token")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="identity/auth/login")
 
 def verify_password(plain_password, hashed_password):
     return pwd_context.verify(plain_password, hashed_password)
@@ -53,6 +53,24 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     if user is None:
         raise credentials_exception
     return user
+
+def get_tenant_scope(hospital_id: int = None, current_user: User = Depends(get_current_user)):
+    """
+    Returns the hospital_id for the current user to enforce tenant isolation.
+    Super Admins can pass hospital_id to filter, otherwise returns None (all).
+    Other roles are restricted to their assigned hospital_id.
+    """
+    # Super Admins can pass hospital_id to filter, or get None (all)
+    if current_user.role == "Super Admin":
+        return hospital_id
+    
+    # Non-Super Admins are strictly scoped to their own hospital_id
+    if not current_user.hospital_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, 
+            detail="User not assigned to a hospital tenant."
+        )
+    return current_user.hospital_id
 
 class RequireRole:
     """Dependency class to enforce RBAC based on user roles."""

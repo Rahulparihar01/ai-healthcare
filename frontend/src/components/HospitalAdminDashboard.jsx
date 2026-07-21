@@ -22,9 +22,8 @@ export default function HospitalAdminDashboard() {
 
   const fetchDoctors = async () => {
     try {
-      // In a real app, we would fetch doctors for this specific hospital ID
-      // Hardcoded hospital_id 1 for demo purposes
-      const res = await api.get('/doctors/list?hospital_id=1');
+      // The backend will automatically infer hospital_id from the user's JWT token
+      const res = await api.get('/doctors/list');
       setDoctors(res.data);
     } catch (error) {
       console.error("Failed to fetch doctors", error);
@@ -35,8 +34,8 @@ export default function HospitalAdminDashboard() {
     e.preventDefault();
     setLoading(true);
     try {
-      // Hardcoded hospital_id 1 for demo purposes
-      await api.post('/doctors/register', { ...formData, hospital_id: 1 });
+      // The backend will infer the hospital_id from the token
+      await api.post('/doctors/onboard', formData);
       alert("Doctor registered successfully!");
       setShowAddModal(false);
       fetchDoctors();

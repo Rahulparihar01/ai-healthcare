@@ -5,7 +5,7 @@ from typing import List
 
 from database import get_db
 import models
-from auth import RequireRole
+from auth import RequireRole, get_tenant_scope
 
 router = APIRouter(prefix="/facilities", tags=["Facilities"])
 
@@ -36,8 +36,11 @@ def register_lab(
     return db_lab
 
 @router.get("/labs/list", response_model=List[FacilityResponse])
-def get_labs(db: Session = Depends(get_db)):
-    return db.query(models.Laboratory).all()
+def get_labs(db: Session = Depends(get_db), tenant_id: int = Depends(get_tenant_scope)):
+    query = db.query(models.Laboratory)
+    if tenant_id:
+        query = query.filter(models.Laboratory.hospital_id == tenant_id)
+    return query.all()
 
 @router.put("/labs/update", response_model=FacilityResponse)
 def update_lab(
@@ -86,8 +89,11 @@ def register_pharmacy(
     return db_pharmacy
 
 @router.get("/pharmacies/list", response_model=List[FacilityResponse])
-def get_pharmacies(db: Session = Depends(get_db)):
-    return db.query(models.Pharmacy).all()
+def get_pharmacies(db: Session = Depends(get_db), tenant_id: int = Depends(get_tenant_scope)):
+    query = db.query(models.Pharmacy)
+    if tenant_id:
+        query = query.filter(models.Pharmacy.hospital_id == tenant_id)
+    return query.all()
 
 @router.put("/pharmacies/update", response_model=FacilityResponse)
 def update_pharmacy(

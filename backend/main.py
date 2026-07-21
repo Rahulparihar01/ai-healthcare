@@ -5,7 +5,8 @@ import os
 
 from database import engine
 import models
-from routers import auth, hospital, doctor, facilities, patient, records
+from routers import hospital, doctor, facilities, patient, records, departments
+from routers.identity import authentication, authorization, verification, profile, sessions, devices, recovery, audit
 
 # Alembic will handle database schema creation
 # models.Base.metadata.create_all(bind=engine)
@@ -23,10 +24,19 @@ app.add_middleware(
 )
 
 # Include the routers
-app.include_router(auth.router)
+# Include Identity Service routers
+app.include_router(authentication.router)
+app.include_router(authorization.router)
+app.include_router(verification.router)
+app.include_router(profile.router)
+app.include_router(sessions.router)
+app.include_router(devices.router)
+app.include_router(recovery.router)
+app.include_router(audit.router)
 app.include_router(hospital.router)
 app.include_router(doctor.router)
 app.include_router(facilities.router)
+app.include_router(departments.router)
 app.include_router(patient.router)
 app.include_router(records.router)
 

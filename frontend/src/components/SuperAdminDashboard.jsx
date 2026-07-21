@@ -14,7 +14,8 @@ export default function SuperAdminDashboard() {
 
   // Form state
   const [formData, setFormData] = useState({
-    name: '', address: '', contact_email: '', contact_phone: '', license_number: ''
+    name: '', address: '', contact_email: '', contact_phone: '', license_number: '',
+    username: '', password: '', email: '', role: 'Hospital Admin', hospital_id: ''
   });
 
   useEffect(() => {
@@ -40,7 +41,21 @@ export default function SuperAdminDashboard() {
     e.preventDefault();
     setLoading(true);
     try {
-      if (activeTab === 'hospitals') {
+      if (activeTab === 'users') {
+        if (!formData.hospital_id) {
+          alert("Please select a hospital for the staff member.");
+          setLoading(false);
+          return;
+        }
+        await api.post('/identity/auth/register', { 
+          username: formData.username, 
+          password: formData.password, 
+          email: formData.email, 
+          role: formData.role,
+          hospital_id: parseInt(formData.hospital_id)
+        });
+        alert("Staff registered successfully!");
+      } else if (activeTab === 'hospitals') {
         await api.post('/hospitals/create', formData);
         alert("Hospital registered successfully!");
       } else if (activeTab === 'labs') {
@@ -51,7 +66,10 @@ export default function SuperAdminDashboard() {
         alert("Pharmacy registered successfully!");
       }
       setShowAddModal(false);
-      setFormData({ name: '', address: '', contact_email: '', contact_phone: '', license_number: '' });
+      setFormData({ 
+        name: '', address: '', contact_email: '', contact_phone: '', license_number: '',
+        username: '', password: '', email: '', role: 'Hospital Admin', hospital_id: ''
+      });
       fetchData();
     } catch (error) {
       alert("Error registering: " + (error.response?.data?.detail || error.message));
@@ -145,6 +163,28 @@ export default function SuperAdminDashboard() {
           </>
         )}
 
+        {activeTab === 'users' && (
+          <>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+              <div>
+                <h1 style={{ fontSize: '2.25rem', fontWeight: 600, color: '#000', marginBottom: '0.25rem' }}>
+                  System Users
+                </h1>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '1.1rem' }}>
+                  Register administrative staff and assign them to hospitals.
+                </p>
+              </div>
+              <button className="btn btn-primary" onClick={() => setShowAddModal(true)}>
+                <Plus size={18} /> Register Staff
+              </button>
+            </div>
+            
+            <div className="glass-panel" style={{ background: 'white', padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
+              Click "Register Staff" to create a new Hospital Admin or Receptionist.
+            </div>
+          </>
+        )}
+
         {(activeTab === 'labs' || activeTab === 'pharmacies') && (
           <>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
@@ -195,31 +235,66 @@ export default function SuperAdminDashboard() {
       {showAddModal && (
         <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
           <div className="glass-panel" style={{ background: 'white', padding: '2rem', width: '500px', maxHeight: '90vh', overflowY: 'auto' }}>
-            <h2>Register New {activeTab === 'hospitals' ? 'Hospital' : activeTab === 'labs' ? 'Laboratory' : 'Pharmacy'}</h2>
+            <h2>Register New {activeTab === 'hospitals' ? 'Hospital' : activeTab === 'labs' ? 'Laboratory' : activeTab === 'pharmacies' ? 'Pharmacy' : 'Staff'}</h2>
             <form onSubmit={handleRegister}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                <div className="input-group">
-                  <label className="input-label">Name</label>
-                  <input className="input-field" required onChange={e => setFormData({...formData, name: e.target.value})} />
-                </div>
-                <div className="input-group">
-                  <label className="input-label">Address</label>
-                  <input className="input-field" required onChange={e => setFormData({...formData, address: e.target.value})} />
-                </div>
-                {(activeTab === 'labs' || activeTab === 'pharmacies') && (
-                  <div className="input-group">
-                    <label className="input-label">License Number</label>
-                    <input className="input-field" required onChange={e => setFormData({...formData, license_number: e.target.value})} />
-                  </div>
+                {activeTab === 'users' ? (
+                  <>
+                    <div className="input-group">
+                      <label className="input-label">Username</label>
+                      <input className="input-field" required value={formData.username} onChange={e => setFormData({...formData, username: e.target.value})} />
+                    </div>
+                    <div className="input-group">
+                      <label className="input-label">Email</label>
+                      <input type="email" className="input-field" required value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
+                    </div>
+                    <div className="input-group">
+                      <label className="input-label">Password</label>
+                      <input type="password" className="input-field" required value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} />
+                    </div>
+                    <div className="input-group">
+                      <label className="input-label">Role</label>
+                      <select className="input-field" required value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})}>
+                        <option value="Hospital Admin">Hospital Admin</option>
+                        <option value="Receptionist">Receptionist</option>
+                      </select>
+                    </div>
+                    <div className="input-group">
+                      <label className="input-label">Assign Hospital</label>
+                      <select className="input-field" required value={formData.hospital_id} onChange={e => setFormData({...formData, hospital_id: e.target.value})}>
+                        <option value="">Select a hospital...</option>
+                        {hospitals.map(h => (
+                          <option key={h.id} value={h.id}>{h.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="input-group">
+                      <label className="input-label">Name</label>
+                      <input className="input-field" required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
+                    </div>
+                    <div className="input-group">
+                      <label className="input-label">Address</label>
+                      <input className="input-field" required value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} />
+                    </div>
+                    {(activeTab === 'labs' || activeTab === 'pharmacies') && (
+                      <div className="input-group">
+                        <label className="input-label">License Number</label>
+                        <input className="input-field" required value={formData.license_number} onChange={e => setFormData({...formData, license_number: e.target.value})} />
+                      </div>
+                    )}
+                    <div className="input-group">
+                      <label className="input-label">Contact Email</label>
+                      <input type="email" className="input-field" required value={formData.contact_email} onChange={e => setFormData({...formData, contact_email: e.target.value})} />
+                    </div>
+                    <div className="input-group">
+                      <label className="input-label">Contact Phone</label>
+                      <input className="input-field" required value={formData.contact_phone} onChange={e => setFormData({...formData, contact_phone: e.target.value})} />
+                    </div>
+                  </>
                 )}
-                <div className="input-group">
-                  <label className="input-label">Contact Email</label>
-                  <input type="email" className="input-field" required onChange={e => setFormData({...formData, contact_email: e.target.value})} />
-                </div>
-                <div className="input-group">
-                  <label className="input-label">Contact Phone</label>
-                  <input className="input-field" required onChange={e => setFormData({...formData, contact_phone: e.target.value})} />
-                </div>
               </div>
               <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
                 <button type="button" className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setShowAddModal(false)}>Cancel</button>
