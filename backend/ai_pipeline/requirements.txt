@@ -1,0 +1,6 @@
+# Phase 1 OCR and LLM dependencies
+pdf2image==1.17.0
+pytesseract==0.3.10
+openai==1.14.2
+pydantic==2.6.4
+python-dotenv==1.0.1

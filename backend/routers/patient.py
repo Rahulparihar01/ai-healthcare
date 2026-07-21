@@ -1,0 +1,216 @@
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
+from pydantic import BaseModel
+from typing import Dict, Any, List, Optional
+
+from database import get_db
+import models
+from auth import RequireRole, get_current_user, get_password_hash
+from utils import generate_health_id, generate_qr_code
+
+router = APIRouter(prefix="/patients", tags=["Patients"])
+
+class PatientCreate(BaseModel):
+    user_id: int # The user account this profile belongs to
+    blood_group: Optional[str] = None
+    emergency_contact_name: Optional[str] = None
+    emergency_contact_phone: Optional[str] = None
+    allergies: List[str] = []
+    personal_details: Dict[str, Any] = {}
+
+class PatientListResponse(BaseModel):
+    id: int
+    health_id: str
+    name: str
+    phone: Optional[str]
+    blood_group: Optional[str]
+    
+    class Config:
+        from_attributes = True
+
+class PatientProfileResponse(BaseModel):
+    id: int
+    health_id: str
+    qr_code_path: str
+    blood_group: Optional[str]
+    emergency_contact_name: Optional[str]
+    emergency_contact_phone: Optional[str]
+    allergies: List[str]
+    personal_details: Dict[str, Any]
+    medical_history: Dict[str, Any]
+    family_history: Dict[str, Any]
+    insurance_details: Dict[str, Any]
+    lifestyle: Dict[str, Any]
+    
+    class Config:
+        from_attributes = True
+
+class PatientFullRegister(BaseModel):
+    username: str
+    password: str
+    email: str
+    phone_number: str = None
+    blood_group: Optional[str] = None
+    emergency_contact_name: Optional[str] = None
+    emergency_contact_phone: Optional[str] = None
+    allergies: List[str] = []
+    personal_details: Dict[str, Any] = {}
+
+class PatientProfileUpdate(BaseModel):
+    blood_group: Optional[str] = None
+    emergency_contact_name: Optional[str] = None
+    emergency_contact_phone: Optional[str] = None
+    allergies: List[str] = None
+    personal_details: Dict[str, Any] = None
+    medical_history: Dict[str, Any] = None
+    family_history: Dict[str, Any] = None
+    insurance_details: Dict[str, Any] = None
+    lifestyle: Dict[str, Any] = None
+
+@router.post("/create", response_model=PatientProfileResponse, status_code=status.HTTP_201_CREATED)
+def register_patient(
+    patient: PatientCreate, 
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(RequireRole([models.RoleEnum.SUPER_ADMIN.value, models.RoleEnum.HOSPITAL_ADMIN.value, models.RoleEnum.RECEPTIONIST.value]))
+):
+    # Verify user exists
+    user = db.query(models.User).filter(models.User.id == patient.user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    # Check if patient profile already exists
+    if db.query(models.PatientProfile).filter(models.PatientProfile.user_id == user.id).first():
+        raise HTTPException(status_code=400, detail="Patient profile already exists for this user")
+
+    health_id = generate_health_id()
+    qr_code_path = generate_qr_code(health_id)
+
+    db_profile = models.PatientProfile(
+        user_id=user.id,
+        health_id=health_id,
+        qr_code_path=qr_code_path,
+        blood_group=patient.blood_group,
+        emergency_contact_name=patient.emergency_contact_name,
+        emergency_contact_phone=patient.emergency_contact_phone,
+        allergies=patient.allergies,
+        personal_details=patient.personal_details
+    )
+    db.add(db_profile)
+    db.commit()
+    db.refresh(db_profile)
+    
+    return db_profile
+
+@router.get("/list", response_model=List[PatientListResponse])
+def get_all_patients(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(RequireRole([models.RoleEnum.SUPER_ADMIN.value, models.RoleEnum.HOSPITAL_ADMIN.value, models.RoleEnum.RECEPTIONIST.value, models.RoleEnum.DOCTOR.value]))
+):
+    if current_user.role == models.RoleEnum.SUPER_ADMIN.value:
+        profiles = db.query(models.PatientProfile).all()
+    else:
+        profiles = db.query(models.PatientProfile).join(models.User).filter(
+            models.User.hospital_id == current_user.hospital_id
+        ).all()
+        
+    results = []
+    for p in profiles:
+        user = db.query(models.User).filter(models.User.id == p.user_id).first()
+        results.append({
+            "id": p.id,
+            "health_id": p.health_id,
+            "name": user.username if user else "Unknown",
+            "phone": user.phone_number if user else None,
+            "blood_group": p.blood_group
+        })
+    return results
+
+@router.get("/profile", response_model=PatientProfileResponse)
+def get_patient_profile(
+    health_id: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    if current_user.role == models.RoleEnum.PATIENT.value:
+        profile = db.query(models.PatientProfile).filter(models.PatientProfile.user_id == current_user.id).first()
+        if not profile:
+            raise HTTPException(status_code=404, detail="Patient profile not found for this user")
+    else:
+        if not health_id:
+            raise HTTPException(status_code=400, detail="health_id query parameter is required for staff")
+        profile = db.query(models.PatientProfile).filter(models.PatientProfile.health_id == health_id).first()
+        if not profile:
+            raise HTTPException(status_code=404, detail="Patient not found")
+        
+    return profile
+
+@router.put("/update", response_model=PatientProfileResponse)
+def update_patient_profile(
+    health_id: str,
+    update_data: PatientProfileUpdate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    profile = db.query(models.PatientProfile).filter(models.PatientProfile.health_id == health_id).first()
+    if not profile:
+        raise HTTPException(status_code=404, detail="Patient not found")
+        
+    # Security: only the patient themselves or admins/doctors can update
+    if current_user.role == models.RoleEnum.PATIENT.value and profile.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to update this profile")
+        
+    for key, value in update_data.model_dump(exclude_unset=True).items():
+        if value is not None:
+            setattr(profile, key, value)
+            
+    db.commit()
+    db.refresh(profile)
+    return profile
+
+@router.post("/register", response_model=PatientProfileResponse, status_code=status.HTTP_201_CREATED)
+def register_patient_full(
+    data: PatientFullRegister,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(RequireRole([models.RoleEnum.SUPER_ADMIN.value, models.RoleEnum.HOSPITAL_ADMIN.value, models.RoleEnum.RECEPTIONIST.value]))
+):
+    existing_user = db.query(models.User).filter(
+        (models.User.username == data.username) | (models.User.email == data.email)
+    ).first()
+    
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Username or email already exists")
+        
+    # 1. Create User
+    hashed_password = get_password_hash(data.password)
+    db_user = models.User(
+        username=data.username,
+        email=data.email,
+        phone_number=data.phone_number,
+        hashed_password=hashed_password,
+        role=models.RoleEnum.PATIENT.value,
+        is_email_verified=True, 
+        hospital_id=current_user.hospital_id if current_user.role != models.RoleEnum.SUPER_ADMIN.value else None
+    )
+    db.add(db_user)
+    db.commit()
+    db.refresh(db_user)
+    
+    # 2. Create Profile & Generate ID
+    health_id = generate_health_id()
+    qr_code_path = generate_qr_code(health_id)
+
+    db_profile = models.PatientProfile(
+        user_id=db_user.id,
+        health_id=health_id,
+        qr_code_path=qr_code_path,
+        blood_group=data.blood_group,
+        emergency_contact_name=data.emergency_contact_name,
+        emergency_contact_phone=data.emergency_contact_phone,
+        allergies=data.allergies,
+        personal_details=data.personal_details
+    )
+    db.add(db_profile)
+    db.commit()
+    db.refresh(db_profile)
+    
+    return db_profile
