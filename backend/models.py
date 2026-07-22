@@ -332,6 +332,7 @@ class LabReport(Base, AuditableMixin):
     results = Column(JSON, default={})
     file_url = Column(String, nullable=True)
     status = Column(String, default="Pending")
+    processing_status = Column(String, default="Pending")
 
     visit = relationship("Visit")
     patient = relationship("PatientProfile")
@@ -349,6 +350,7 @@ class Radiology(Base, AuditableMixin):
     body_part = Column(String, nullable=True)
     file_url = Column(String, nullable=True)
     ai_analysis = Column(JSON, default={})
+    processing_status = Column(String, default="Pending")
 
     visit = relationship("Visit")
     patient = relationship("PatientProfile")
@@ -364,6 +366,8 @@ class MedicalDocument(Base, AuditableMixin):
     document_type = Column(String)
     file_url = Column(String)
     extracted_data = Column(JSON, default={})
+    processing_status = Column(String, default="Pending")
+    embeddings = Column(JSON, default=[])
 
     patient = relationship("PatientProfile")
     uploader = relationship("User")

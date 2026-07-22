@@ -19,6 +19,7 @@ cleanup() {
     echo -e "\n${BLUE}Shutting down services...${NC}"
     kill $BACKEND_PID 2>/dev/null
     kill $FRONTEND_PID 2>/dev/null
+    kill $CELERY_PID 2>/dev/null
     exit 0
 }
 
@@ -32,6 +33,11 @@ pip install -r requirements.txt
 echo -e "${GREEN}Starting FastAPI Backend on port 8000...${NC}"
 uvicorn main:app --reload --port 8000 &
 BACKEND_PID=$!
+
+echo -e "${GREEN}Starting Celery Worker...${NC}"
+celery -A celery_app worker --loglevel=info &
+CELERY_PID=$!
+
 cd ..
 
 # Health check loop for backend

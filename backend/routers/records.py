@@ -14,9 +14,12 @@ from auth import RequireRole, get_current_user
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'ai_pipeline')))
 try:
     from extractor import extract_information
+    from worker import process_document_background
 except ImportError:
     def extract_information(path):
         return {"error": "Could not load extractor module.", "report_category": "Unknown"}
+    def process_document_background(record_id, record_type, file_path):
+        pass
 
 router = APIRouter(prefix="/records", tags=["Medical Records"])
 
@@ -157,7 +160,6 @@ async def upload_report(
             content = await file.read()
             buffer.write(content)
             
-        extracted_data = extract_information(file_path)
         file_url = f"/public/uploads/{safe_filename}"
         
         created_id = None
@@ -167,10 +169,10 @@ async def upload_report(
             db_lab = models.LabReport(
                 visit_id=visit_id,
                 patient_id=patient.id,
-                test_name=extracted_data.get("report_category", "General Lab Test"),
-                results=extracted_data,
+                test_name="Processing...",
+                results={},
                 file_url=file_url,
-                status="Completed"
+                processing_status="Processing"
             )
             db.add(db_lab)
             db.flush()
@@ -180,17 +182,18 @@ async def upload_report(
                 patient_id=patient.id,
                 event_type="LabReport",
                 reference_id=db_lab.id,
-                title=f"Lab Report: {db_lab.test_name}",
-                summary="Lab results uploaded and available for review."
+                title=f"Lab Report (Processing)",
+                summary="AI is analyzing this document..."
             )
             
         elif record_type == 'radiology':
             db_rad = models.Radiology(
                 visit_id=visit_id,
                 patient_id=patient.id,
-                scan_type=extracted_data.get("report_category", "Radiology Scan"),
+                scan_type="Processing...",
                 file_url=file_url,
-                ai_analysis=extracted_data
+                ai_analysis={},
+                processing_status="Processing"
             )
             db.add(db_rad)
             db.flush()
@@ -200,17 +203,18 @@ async def upload_report(
                 patient_id=patient.id,
                 event_type="Radiology",
                 reference_id=db_rad.id,
-                title=f"Radiology Scan: {db_rad.scan_type}",
-                summary="Radiology images and AI analysis available."
+                title=f"Radiology Scan (Processing)",
+                summary="AI is analyzing this document..."
             )
             
         else: # document
             db_doc = models.MedicalDocument(
                 patient_id=patient.id,
                 uploader_id=current_user.id,
-                document_type=extracted_data.get("report_category", "Medical Document"),
+                document_type="Processing...",
                 file_url=file_url,
-                extracted_data=extracted_data
+                extracted_data={},
+                processing_status="Processing"
             )
             db.add(db_doc)
             db.flush()
@@ -220,15 +224,20 @@ async def upload_report(
                 patient_id=patient.id,
                 event_type="Document",
                 reference_id=db_doc.id,
-                title=f"Document Uploaded: {db_doc.document_type}",
-                summary="External medical document added to records."
+                title=f"Document (Processing)",
+                summary="AI is analyzing this document..."
             )
             
         if timeline_event:
             db.add(timeline_event)
             
         db.commit()
-        return {"message": "Upload successful", "id": created_id, "file_url": file_url}
+        
+        # Enqueue Celery Task for AI Processing
+        if created_id and record_type in ['lab_report', 'radiology', 'document']:
+            process_document_background.delay(created_id, record_type, file_path)
+
+        return {"message": "Upload successful and queued for processing", "id": created_id, "file_url": file_url}
 
     except Exception as e:
         if os.path.exists(file_path):

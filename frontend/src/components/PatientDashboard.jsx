@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { User, FileText, QrCode, Activity, Heart, ShieldAlert, Edit2 } from 'lucide-react';
 import api from '../api';
+import Timeline from './Timeline';
 
 export default function PatientDashboard() {
   const { user, logout } = useAuth();
@@ -204,6 +205,8 @@ export default function PatientDashboard() {
 
             </div>
           </>
+        ) : profile && activeTab === 'records' ? (
+           <Timeline healthId={profile.health_id} />
         ) : (
            <div style={{ color: 'var(--text-secondary)' }}>Section under construction.</div>
         )}
