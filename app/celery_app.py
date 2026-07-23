@@ -7,8 +7,8 @@ load_dotenv()
 # Initialize Celery app
 celery_app = Celery(
     "healthid_worker",
-    broker=os.getenv("CELERY_BROKER_URL", "redis://localhost:6379/0"),
-    backend=os.getenv("CELERY_RESULT_BACKEND", "redis://localhost:6379/0"),
+    broker=os.getenv("CELERY_BROKER_URL", "redis://localhost:6379/2"),
+    backend=os.getenv("CELERY_RESULT_BACKEND", "redis://localhost:6379/2"),
     include=["ai_pipeline.worker"]
 )
 
@@ -21,4 +21,5 @@ celery_app.conf.update(
     enable_utc=True,
     task_track_started=True,
     task_time_limit=300, # 5 minutes max per task
+    task_default_queue='healthid_celery', # Isolate queue from other projects
 )

@@ -283,3 +283,34 @@ def register_patient_full(
     db.refresh(db_profile)
     
     return db_profile
+
+@router.get("/{health_id}/health-summary")
+def get_patient_health_summary(
+    health_id: str,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    profile = db.query(models.PatientProfile).filter(models.PatientProfile.health_id == health_id).first()
+    if not profile:
+        raise HTTPException(status_code=404, detail="Patient not found")
+        
+    # Security: only the patient themselves or admins/doctors can access
+    if current_user.role == models.RoleEnum.PATIENT.value and profile.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to view this profile")
+        
+    diseases = db.query(models.Disease).filter(models.Disease.patient_id == profile.id).all()
+    medications = db.query(models.Medication).filter(models.Medication.patient_id == profile.id).all()
+    allergies = db.query(models.Allergy).filter(models.Allergy.patient_id == profile.id).all()
+    lab_results = db.query(models.LabResult).filter(models.LabResult.patient_id == profile.id).order_by(models.LabResult.recorded_at.desc()).limit(10).all()
+    
+    return {
+        "health_id": profile.health_id,
+        "full_name": profile.full_name,
+        "dob": profile.dob,
+        "gender": profile.gender,
+        "blood_group": profile.blood_group,
+        "diseases": [{"id": d.id, "disease_name": d.disease_name, "status": d.status, "severity": d.severity} for d in diseases],
+        "medications": [{"id": m.id, "medicine_name": m.medicine_name, "dosage": m.dosage, "frequency": m.frequency, "status": m.status} for m in medications],
+        "allergies": [{"id": a.id, "allergen": a.allergen, "severity": a.severity, "reaction": a.reaction} for a in allergies],
+        "recent_lab_results": [{"id": l.id, "biomarker_name": l.biomarker_name, "value": l.value, "unit": l.unit, "reference_range": l.reference_range, "recorded_at": l.recorded_at.isoformat() if l.recorded_at else None} for l in lab_results]
+    }

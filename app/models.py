@@ -447,3 +447,19 @@ class LabResult(Base, AuditableMixin):
 
     patient = relationship("PatientProfile", back_populates="lab_results")
     lab_report = relationship("LabReport")
+
+class Alert(Base, AuditableMixin):
+    __tablename__ = "alerts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    patient_id = Column(Integer, ForeignKey("patient_profiles.id"))
+    doctor_id = Column(Integer, ForeignKey("doctor_profiles.id"), nullable=True)
+    
+    alert_type = Column(String, index=True) # e.g., INTERACTION, ALLERGY, CRITICAL_LAB, REMINDER
+    severity = Column(String) # HIGH, MEDIUM, LOW
+    message = Column(String)
+    is_read = Column(Boolean, default=False)
+    reference_id = Column(String, nullable=True) # Links to specific lab or medication
+    
+    patient = relationship("PatientProfile")
+    doctor = relationship("DoctorProfile")

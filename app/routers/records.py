@@ -10,6 +10,9 @@ from database import get_db
 import models
 from auth import RequireRole, get_current_user
 
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'ai_pipeline')))
+from copilot_engine import compare_medical_reports
+
 # Import the extractor from the ai_pipeline (with fallback)
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'ai_pipeline')))
 try:
@@ -332,3 +335,22 @@ def update_record(
     
     db.commit()
     return {"message": "Record updated successfully"}
+
+class CompareRequest(BaseModel):
+    doc1_id: int
+    doc2_id: int
+
+@router.post("/compare")
+def compare_records(
+    request: CompareRequest,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(RequireRole([models.RoleEnum.DOCTOR.value, models.RoleEnum.SUPER_ADMIN.value]))
+):
+    doc1 = db.query(models.MedicalDocument).filter(models.MedicalDocument.id == request.doc1_id).first()
+    doc2 = db.query(models.MedicalDocument).filter(models.MedicalDocument.id == request.doc2_id).first()
+    
+    if not doc1 or not doc2:
+        raise HTTPException(status_code=404, detail="One or both documents not found")
+        
+    delta = compare_medical_reports(doc1.extracted_data, doc2.extracted_data)
+    return {"doc1_id": doc1.id, "doc2_id": doc2.id, "comparison": delta}

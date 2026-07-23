@@ -82,12 +82,22 @@ def onboard_doctor(
 @router.get("/list", response_model=List[DoctorResponse])
 def get_doctors(
     department_id: int = None, 
+    hospital_id: int = None,
     db: Session = Depends(get_db),
-    tenant_id: int = Depends(get_tenant_scope)
+    current_user: models.User = Depends(get_current_user)
 ):
     query = db.query(models.DoctorProfile)
-    if tenant_id:
-        query = query.filter(models.DoctorProfile.hospital_id == tenant_id)
+    
+    # Scoping logic
+    if current_user.role in [models.RoleEnum.DOCTOR.value, models.RoleEnum.HOSPITAL_ADMIN.value]:
+        # Lock to their own hospital
+        query = query.filter(models.DoctorProfile.hospital_id == current_user.hospital_id)
+    else:
+        # Patients and Super Admins can view all, or filter by requested hospital_id
+        if hospital_id:
+            query = query.filter(models.DoctorProfile.hospital_id == hospital_id)
+            
     if department_id:
         query = query.filter(models.DoctorProfile.department_id == department_id)
+        
     return query.all()

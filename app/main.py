@@ -5,7 +5,7 @@ import os
 
 from database import engine
 import models
-from routers import hospital, doctor, facilities, patient, records, departments, knowledge_graph
+from routers import hospital, doctor, facilities, patient, records, departments, knowledge_graph, copilot, alerts, timeline
 from routers.identity import authentication, authorization, verification, profile, sessions, devices, recovery, audit
 
 # Alembic will handle database schema creation
@@ -40,6 +40,9 @@ app.include_router(departments.router)
 app.include_router(patient.router)
 app.include_router(records.router)
 app.include_router(knowledge_graph.router)
+app.include_router(copilot.router)
+app.include_router(alerts.router)
+app.include_router(timeline.router)
 
 @app.get("/")
 def read_root():
