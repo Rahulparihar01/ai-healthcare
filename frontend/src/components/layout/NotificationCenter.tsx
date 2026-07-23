@@ -13,9 +13,25 @@ const NotificationCenter: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
-    fetchAlerts();
-    const interval = setInterval(fetchAlerts, 30000); // Poll every 30s
-    return () => clearInterval(interval);
+    fetchAlerts(); // Initial fetch
+    
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    // Use ws:// or wss:// based on current protocol
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    // Vite proxies /api so we might need to connect directly to the backend host or rely on Vite's WS proxy
+    const ws = new WebSocket(`ws://localhost:8000/api/v1/alerts/ws?token=${token}`);
+
+    ws.onmessage = (event) => {
+      // In a real scenario, the backend might send JSON with the new alert
+      // For now, if we get a ping/message, we just refetch
+      fetchAlerts();
+    };
+
+    return () => {
+      ws.close();
+    };
   }, []);
 
   const fetchAlerts = async () => {

@@ -11,6 +11,8 @@ router = APIRouter(prefix="/timeline", tags=["Timeline"])
 @router.get("/{health_id}")
 def get_medical_timeline(
     health_id: str,
+    skip: int = 0,
+    limit: int = 20,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
@@ -20,7 +22,7 @@ def get_medical_timeline(
         
     events = db.query(models.TimelineEvent).filter(
         models.TimelineEvent.patient_id == profile.id
-    ).order_by(models.TimelineEvent.event_date.desc()).all()
+    ).order_by(models.TimelineEvent.event_date.desc()).offset(skip).limit(limit).all()
     
     return [
         {
@@ -38,6 +40,8 @@ def get_medical_timeline(
 def get_biomarker_trends(
     health_id: str,
     biomarker: str,
+    skip: int = 0,
+    limit: int = 20,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
@@ -48,7 +52,7 @@ def get_biomarker_trends(
     results = db.query(models.LabResult).filter(
         models.LabResult.patient_id == profile.id,
         models.LabResult.biomarker_name.ilike(f"%{biomarker}%")
-    ).order_by(models.LabResult.recorded_at.asc()).all()
+    ).order_by(models.LabResult.recorded_at.asc()).offset(skip).limit(limit).all()
     
     return [
         {

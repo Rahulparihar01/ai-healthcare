@@ -341,7 +341,7 @@ class CompareRequest(BaseModel):
     doc2_id: int
 
 @router.post("/compare")
-def compare_records(
+async def compare_records(
     request: CompareRequest,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(RequireRole([models.RoleEnum.DOCTOR.value, models.RoleEnum.SUPER_ADMIN.value]))
@@ -352,5 +352,5 @@ def compare_records(
     if not doc1 or not doc2:
         raise HTTPException(status_code=404, detail="One or both documents not found")
         
-    delta = compare_medical_reports(doc1.extracted_data, doc2.extracted_data)
+    delta = await compare_medical_reports(doc1.extracted_data, doc2.extracted_data)
     return {"doc1_id": doc1.id, "doc2_id": doc2.id, "comparison": delta}

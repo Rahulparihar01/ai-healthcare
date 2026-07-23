@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from database import get_db
 import models
 from auth import RequireRole, get_current_user
+from datetime import datetime
 from ai_pipeline.copilot_engine import check_prescription_safety, generate_case_history
 
 router = APIRouter(prefix="/copilot", tags=["Copilot Assistive Intelligence"])
@@ -20,7 +21,7 @@ class WarningResponse(BaseModel):
     message: str
 
 @router.post("/check-prescription", response_model=List[WarningResponse])
-def check_prescription(
+async def check_prescription(
     request: PrescriptionCheckRequest,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(RequireRole([models.RoleEnum.DOCTOR.value, models.RoleEnum.SUPER_ADMIN.value]))
@@ -35,11 +36,11 @@ def check_prescription(
     allergy_list = [{"allergen": a.allergen, "severity": a.severity, "reaction": a.reaction} for a in allergies]
     med_list = [{"medicine_name": m.medicine_name, "dosage": m.dosage, "frequency": m.frequency} for m in medications]
     
-    warnings = check_prescription_safety(profile.id, allergy_list, med_list, request.proposed_medications)
+    warnings = await check_prescription_safety(profile.id, allergy_list, med_list, request.proposed_medications)
     return warnings
 
 @router.get("/{health_id}/case-history")
-def get_case_history(
+async def get_case_history(
     health_id: str,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(RequireRole([models.RoleEnum.DOCTOR.value, models.RoleEnum.SUPER_ADMIN.value]))
@@ -56,5 +57,18 @@ def get_case_history(
     diseases_list = [{"disease_name": d.disease_name, "status": d.status} for d in diseases]
     labs_list = [{"biomarker_name": l.biomarker_name, "value": l.value, "unit": l.unit} for l in lab_results]
     
-    history_text = generate_case_history(events_list, labs_list, diseases_list)
-    return {"health_id": profile.health_id, "case_history": history_text}
+    latest_event_date = timeline_events[-1].event_date if timeline_events and timeline_events[-1].event_date else None
+    
+    if profile.cached_case_history and profile.case_history_updated_at:
+        if latest_event_date and profile.case_history_updated_at >= latest_event_date:
+            return {"health_id": profile.health_id, "case_history": profile.cached_case_history, "cached": True}
+        elif not latest_event_date:
+            return {"health_id": profile.health_id, "case_history": profile.cached_case_history, "cached": True}
+            
+    history_text = await generate_case_history(events_list, labs_list, diseases_list)
+    
+    profile.cached_case_history = history_text
+    profile.case_history_updated_at = datetime.utcnow()
+    db.commit()
+    
+    return {"health_id": profile.health_id, "case_history": history_text, "cached": False}

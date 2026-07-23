@@ -1,10 +1,10 @@
 import json
 import os
-from openai import OpenAI
+from openai import AsyncOpenAI
 
-client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY", "mock-key"))
+client = AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY", "mock-key"))
 
-def check_prescription_safety(patient_id: int, allergies: list, current_medications: list, proposed_medications: list) -> list:
+async def check_prescription_safety(patient_id: int, allergies: list, current_medications: list, proposed_medications: list) -> list:
     """
     Checks proposed medications against current medications and allergies.
     Returns a list of warnings (dictionaries with severity, alert_type, message).
@@ -25,7 +25,7 @@ def check_prescription_safety(patient_id: int, allergies: list, current_medicati
     """
     
     try:
-        response = client.chat.completions.create(
+        response = await client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": system_prompt},
@@ -35,13 +35,11 @@ def check_prescription_safety(patient_id: int, allergies: list, current_medicati
             max_tokens=500,
             temperature=0.1
         )
-        # Parse output ensuring it's a list (the LLM might wrap it in a dict if using json_object format, so let's handle that)
         content = response.choices[0].message.content.strip()
         data = json.loads(content)
         if isinstance(data, list):
             return data
         elif isinstance(data, dict):
-            # Try to find a list inside
             for key, val in data.items():
                 if isinstance(val, list):
                     return val
@@ -50,7 +48,7 @@ def check_prescription_safety(patient_id: int, allergies: list, current_medicati
         print(f"Copilot engine failed: {e}")
         return []
 
-def generate_case_history(timeline_events: list, lab_results: list, diseases: list) -> str:
+async def generate_case_history(timeline_events: list, lab_results: list, diseases: list) -> str:
     """
     Synthesizes a chronological, narrative medical history from records.
     """
@@ -68,7 +66,7 @@ def generate_case_history(timeline_events: list, lab_results: list, diseases: li
     """
     
     try:
-        response = client.chat.completions.create(
+        response = await client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": system_prompt},
@@ -82,7 +80,7 @@ def generate_case_history(timeline_events: list, lab_results: list, diseases: li
         print(f"Copilot engine failed: {e}")
         return "Failed to generate case history."
 
-def compare_medical_reports(report_a: dict, report_b: dict) -> str:
+async def compare_medical_reports(report_a: dict, report_b: dict) -> str:
     """
     Analyzes two reports and generates a structured comparison highlighting key changes.
     """
@@ -97,7 +95,7 @@ def compare_medical_reports(report_a: dict, report_b: dict) -> str:
     user_prompt = f"Report A (Older):\n{json.dumps(report_a)}\n\nReport B (Newer):\n{json.dumps(report_b)}"
     
     try:
-        response = client.chat.completions.create(
+        response = await client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": system_prompt},

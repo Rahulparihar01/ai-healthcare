@@ -248,6 +248,10 @@ class PatientProfile(Base, AuditableMixin):
     chronic_diseases = Column(JSON, default=[])
     current_medications = Column(JSON, default=[])
     past_surgeries = Column(JSON, default=[])
+
+    # AI Cache
+    cached_case_history = Column(String, nullable=True)
+    case_history_updated_at = Column(DateTime, nullable=True)
     insurance_details = Column(JSON, default={})
     
     # Status & Consent
