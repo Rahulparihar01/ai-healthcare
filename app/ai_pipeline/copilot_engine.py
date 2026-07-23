@@ -108,3 +108,53 @@ async def compare_medical_reports(report_a: dict, report_b: dict) -> str:
     except Exception as e:
         print(f"Comparison failed: {e}")
         return "Failed to compare reports."
+
+async def explain_abnormal_lab(biomarker: str, value: str, patient_context: str) -> str:
+    """
+    Generates a plain-language explanation of why a specific lab value might be flagged, 
+    contextualized to the patient.
+    """
+    system_prompt = (
+        "You are a medical copilot assisting a doctor. "
+        "The user will provide an abnormal lab biomarker, its value, and some patient context. "
+        "Explain in plain, concise language why this value might be abnormal and what it could indicate "
+        "given the patient's specific context. Limit your response to 2-3 sentences."
+    )
+    
+    user_prompt = f"Biomarker: {biomarker}\nValue: {value}\nPatient Context:\n{patient_context}"
+    
+    try:
+        response = await client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            max_tokens=250,
+            temperature=0.2
+        )
+        return response.choices[0].message.content.strip()
+    except Exception as e:
+        print(f"Explain lab failed: {e}")
+        return "Failed to explain abnormal lab value."
+
+async def auto_assign_icd10(condition_name: str, notes: str) -> str:
+    prompt = f"""
+    You are an expert clinical coder.
+    Based on the following diagnosis and clinical notes, provide the most specific ICD-10 code.
+    Output ONLY the ICD-10 code (e.g., E11.9) without any other text.
+    
+    Diagnosis: {condition_name}
+    Clinical Notes: {notes}
+    """
+    try:
+        response = await client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=10,
+            temperature=0.0
+        )
+        return response.choices[0].message.content.strip()
+    except Exception as e:
+        print(f"ICD-10 assignment failed: {e}")
+        return ""

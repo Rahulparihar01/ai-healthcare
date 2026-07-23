@@ -11,7 +11,8 @@ import models
 from auth import RequireRole, get_current_user
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'ai_pipeline')))
-from copilot_engine import compare_medical_reports
+from copilot_engine import compare_medical_reports, auto_assign_icd10
+from embeddings import generate_embedding
 
 # Import the extractor from the ai_pipeline (with fallback)
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'ai_pipeline')))
@@ -44,7 +45,7 @@ class TimelineEventResponse(BaseModel):
         from_attributes = True
 
 @router.post("/create")
-def create_medical_record(
+async def create_medical_record(
     health_id: str,
     record: RecordCreate,
     db: Session = Depends(get_db),
@@ -83,12 +84,19 @@ def create_medical_record(
         )
 
     elif record.record_type == 'diagnosis':
+        icd10_code = record.data.get('icd10_code')
+        if not icd10_code:
+            icd10_code = await auto_assign_icd10(
+                record.data.get('condition_name', ''), 
+                record.data.get('clinical_notes', '')
+            )
+            
         db_diag = models.Diagnosis(
             visit_id=record.visit_id,
             patient_id=patient.id,
             doctor_id=doctor_id,
             condition_name=record.data.get('condition_name'),
-            icd10_code=record.data.get('icd10_code'),
+            icd10_code=icd10_code,
             severity=record.data.get('severity'),
             clinical_notes=record.data.get('clinical_notes')
         )
@@ -130,6 +138,9 @@ def create_medical_record(
         raise HTTPException(status_code=400, detail="Invalid record_type")
 
     if timeline_event:
+        if timeline_event.title and timeline_event.summary:
+            embedding = await generate_embedding(f"{timeline_event.title} {timeline_event.summary}")
+            timeline_event.embedding = embedding
         db.add(timeline_event)
         
     db.commit()

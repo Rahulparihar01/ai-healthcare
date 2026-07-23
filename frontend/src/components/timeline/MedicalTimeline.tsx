@@ -12,11 +12,13 @@ interface TimelineEvent {
 const MedicalTimeline: React.FC<{ healthId: string }> = ({ healthId }) => {
   const [events, setEvents] = useState<TimelineEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [diseaseKeyword, setDiseaseKeyword] = useState('');
 
   useEffect(() => {
     const fetchTimeline = async () => {
       try {
-        const response = await fetch(`/api/v1/timeline/${healthId}`, {
+        const queryParam = diseaseKeyword ? `?disease_keyword=${encodeURIComponent(diseaseKeyword)}` : '';
+        const response = await fetch(`/api/v1/timeline/${healthId}${queryParam}`, {
           headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
         });
         if (response.ok) {
@@ -30,14 +32,24 @@ const MedicalTimeline: React.FC<{ healthId: string }> = ({ healthId }) => {
       }
     };
     fetchTimeline();
-  }, [healthId]);
+  }, [healthId, diseaseKeyword]);
 
   if (loading) return <div>Loading timeline...</div>;
   if (events.length === 0) return <div>No timeline events found.</div>;
 
   return (
-    <div className="relative border-l border-gray-200 ml-3">
-      {events.map((event, index) => (
+    <div>
+      <div className="mb-6 flex gap-2 items-center max-w-sm">
+        <input 
+          type="text" 
+          placeholder="Filter by disease or keyword..." 
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+          value={diseaseKeyword}
+          onChange={(e) => setDiseaseKeyword(e.target.value)}
+        />
+      </div>
+      <div className="relative border-l border-gray-200 ml-3">
+        {events.map((event, index) => (
         <div key={event.id} className="mb-8 ml-6">
           <span className="absolute flex items-center justify-center w-6 h-6 bg-blue-100 rounded-full -left-3 ring-8 ring-white">
             <svg className="w-3 h-3 text-blue-800" fill="currentColor" viewBox="0 0 20 20">
@@ -56,6 +68,7 @@ const MedicalTimeline: React.FC<{ healthId: string }> = ({ healthId }) => {
           <p className="mb-4 text-base font-normal text-gray-500 whitespace-pre-wrap">{event.summary}</p>
         </div>
       ))}
+      </div>
     </div>
   );
 };

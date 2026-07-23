@@ -3,6 +3,7 @@ from sqlalchemy.orm import relationship, declared_attr
 from database import Base
 import enum
 from datetime import datetime
+from pgvector.sqlalchemy import Vector
 
 class AuditableMixin:
     @declared_attr
@@ -394,6 +395,8 @@ class TimelineEvent(Base, AuditableMixin):
     event_date = Column(DateTime, default=datetime.utcnow)
     title = Column(String)
     summary = Column(String, nullable=True)
+    
+    embedding = Column(Vector(1536), nullable=True)
 
     patient = relationship("PatientProfile")
 
@@ -467,3 +470,17 @@ class Alert(Base, AuditableMixin):
     
     patient = relationship("PatientProfile")
     doctor = relationship("DoctorProfile")
+
+class AIAuditLog(Base, AuditableMixin):
+    __tablename__ = "ai_audit_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    feature_name = Column(String, index=True)
+    input_prompt = Column(String)
+    ai_output = Column(String)
+    reasoning = Column(String, nullable=True)
+    model_used = Column(String, default="gpt-4o-mini")
+    confidence_score = Column(Integer, nullable=True)
+    
+    patient_id = Column(Integer, ForeignKey("patient_profiles.id"), nullable=True)
+    patient = relationship("PatientProfile")

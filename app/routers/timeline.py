@@ -13,6 +13,7 @@ def get_medical_timeline(
     health_id: str,
     skip: int = 0,
     limit: int = 20,
+    disease_keyword: str = None,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
@@ -20,9 +21,21 @@ def get_medical_timeline(
     if not profile:
         raise HTTPException(status_code=404, detail="Patient not found")
         
-    events = db.query(models.TimelineEvent).filter(
+    from sqlalchemy import or_
+    
+    query = db.query(models.TimelineEvent).filter(
         models.TimelineEvent.patient_id == profile.id
-    ).order_by(models.TimelineEvent.event_date.desc()).offset(skip).limit(limit).all()
+    )
+    
+    if disease_keyword:
+        query = query.filter(
+            or_(
+                models.TimelineEvent.title.ilike(f"%{disease_keyword}%"),
+                models.TimelineEvent.summary.ilike(f"%{disease_keyword}%")
+            )
+        )
+        
+    events = query.order_by(models.TimelineEvent.event_date.desc()).offset(skip).limit(limit).all()
     
     return [
         {
