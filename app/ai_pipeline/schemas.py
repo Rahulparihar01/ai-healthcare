@@ -58,6 +58,7 @@ VERSIONED_EXTRACTION_SCHEMA_1_0 = {
         },
         "diagnoses": {"type": "array", "items": {"type": "string"}},
         "medications": {"type": "array", "items": {"type": "string"}},
+        "allergies": {"type": "array", "items": {"type": "string"}},
         "lab_results": {
             "type": "array",
             "items": {
@@ -81,5 +82,5 @@ VERSIONED_EXTRACTION_SCHEMA_1_0 = {
         },
         "summary": {"type": "string", "description": "A 2-3 sentence clinical summary of the document."}
     },
-    "required": ["patient", "doctor", "hospital", "diagnoses", "medications", "lab_results", "recommendations", "follow_up", "summary"]
+    "required": ["patient", "doctor", "hospital", "diagnoses", "medications", "allergies", "lab_results", "recommendations", "follow_up", "summary"]
 }

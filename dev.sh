@@ -27,7 +27,7 @@ trap cleanup SIGINT
 
 # Start Backend
 echo -e "${GREEN}Installing Backend Dependencies...${NC}"
-cd backend
+cd app
 pip install -r requirements.txt
 
 echo -e "${GREEN}Starting FastAPI Backend on port 8000...${NC}"

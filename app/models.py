@@ -257,6 +257,12 @@ class PatientProfile(Base, AuditableMixin):
     emergency_access = Column(Boolean, default=True)
 
     user = relationship("User")
+    
+    # Knowledge Graph Relationships
+    diseases = relationship("Disease", back_populates="patient", cascade="all, delete-orphan")
+    medications = relationship("Medication", back_populates="patient", cascade="all, delete-orphan")
+    allergies = relationship("Allergy", back_populates="patient", cascade="all, delete-orphan")
+    lab_results = relationship("LabResult", back_populates="patient", cascade="all, delete-orphan")
 
 class FileRecord(Base, AuditableMixin):
     __tablename__ = "file_records"
@@ -386,3 +392,58 @@ class TimelineEvent(Base, AuditableMixin):
     summary = Column(String, nullable=True)
 
     patient = relationship("PatientProfile")
+
+
+class Disease(Base, AuditableMixin):
+    __tablename__ = "diseases"
+
+    id = Column(Integer, primary_key=True, index=True)
+    patient_id = Column(Integer, ForeignKey("patient_profiles.id"))
+    
+    disease_name = Column(String, index=True)
+    status = Column(String, nullable=True) # e.g., Chronic, Acute
+    severity = Column(String, nullable=True)
+    diagnosis_date = Column(DateTime, nullable=True)
+
+    patient = relationship("PatientProfile", back_populates="diseases")
+
+class Medication(Base, AuditableMixin):
+    __tablename__ = "medications"
+
+    id = Column(Integer, primary_key=True, index=True)
+    patient_id = Column(Integer, ForeignKey("patient_profiles.id"))
+    
+    medicine_name = Column(String, index=True)
+    dosage = Column(String, nullable=True)
+    frequency = Column(String, nullable=True)
+    status = Column(String, nullable=True) # e.g., Active, Discontinued
+
+    patient = relationship("PatientProfile", back_populates="medications")
+
+class Allergy(Base, AuditableMixin):
+    __tablename__ = "allergies"
+
+    id = Column(Integer, primary_key=True, index=True)
+    patient_id = Column(Integer, ForeignKey("patient_profiles.id"))
+    
+    allergen = Column(String, index=True)
+    severity = Column(String, nullable=True)
+    reaction = Column(String, nullable=True)
+
+    patient = relationship("PatientProfile", back_populates="allergies")
+
+class LabResult(Base, AuditableMixin):
+    __tablename__ = "lab_results_structured" # renamed to avoid conflict with `lab_results` JSON in LabReport if any, though distinct table
+
+    id = Column(Integer, primary_key=True, index=True)
+    patient_id = Column(Integer, ForeignKey("patient_profiles.id"))
+    lab_report_id = Column(Integer, ForeignKey("lab_reports.id"), nullable=True)
+    
+    biomarker_name = Column(String, index=True)
+    value = Column(String)
+    unit = Column(String, nullable=True)
+    reference_range = Column(String, nullable=True)
+    recorded_at = Column(DateTime, default=datetime.utcnow)
+
+    patient = relationship("PatientProfile", back_populates="lab_results")
+    lab_report = relationship("LabReport")
