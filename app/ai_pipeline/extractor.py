@@ -1,5 +1,7 @@
 import json
 from openai import OpenAI
+from langsmith.wrappers import wrap_openai
+from langsmith import traceable
 from dotenv import load_dotenv
 
 from .schemas import VERSIONED_EXTRACTION_SCHEMA_1_0
@@ -12,6 +14,7 @@ from .clinical_validator import validate_extraction
 
 load_dotenv()
 
+@traceable(run_type="chain", name="Extract Information Pipeline")
 def extract_information(file_path: str, status_callback=None) -> dict:
     """
     Orchestrates the two-step AI medical data extraction pipeline.
@@ -52,7 +55,7 @@ def extract_information(file_path: str, status_callback=None) -> dict:
         status_callback(f"Extracting {document_type} Data...")
         
     # Step 2: Specialized Extraction
-    client = OpenAI()
+    client = wrap_openai(OpenAI())
     system_prompt = get_extraction_prompt(document_type)
     
     try:

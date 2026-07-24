@@ -1,7 +1,8 @@
 import os
 from openai import AsyncOpenAI
+from langsmith.wrappers import wrap_openai
 
-client = AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY", "mock-key"))
+client = wrap_openai(AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY", "mock-key")))
 
 async def generate_embedding(text: str) -> list[float]:
     """

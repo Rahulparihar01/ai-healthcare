@@ -1,13 +1,16 @@
 import json
 from openai import OpenAI
+from langsmith.wrappers import wrap_openai
+from langsmith import traceable
 from .schemas import CLASSIFICATION_SCHEMA
 
+@traceable(run_type="chain", name="Classify Document")
 def classify_document(raw_text: str) -> tuple[str, float]:
     """
     Uses a fast LLM call (gpt-4o-mini) to classify the document type from the raw text.
     Returns a tuple of (document_type, confidence_score).
     """
-    client = OpenAI()
+    client = wrap_openai(OpenAI())
     
     # We don't need the entire document to classify it. The first 1500 chars is usually enough.
     text_sample = raw_text[:1500]

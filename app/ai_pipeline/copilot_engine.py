@@ -1,8 +1,12 @@
 import json
 import os
 from openai import AsyncOpenAI
+from langsmith.wrappers import wrap_openai
+from langsmith import traceable
 
-client = AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY", "mock-key"))
+client = wrap_openai(AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY", "mock-key")))
+
+@traceable(run_type="chain", name="Check Prescription Safety")
 
 async def check_prescription_safety(patient_id: int, allergies: list, current_medications: list, proposed_medications: list) -> list:
     """
@@ -48,6 +52,7 @@ async def check_prescription_safety(patient_id: int, allergies: list, current_me
         print(f"Copilot engine failed: {e}")
         return []
 
+@traceable(run_type="chain", name="Generate Case History")
 async def generate_case_history(timeline_events: list, lab_results: list, diseases: list) -> str:
     """
     Synthesizes a chronological, narrative medical history from records.
@@ -80,6 +85,7 @@ async def generate_case_history(timeline_events: list, lab_results: list, diseas
         print(f"Copilot engine failed: {e}")
         return "Failed to generate case history."
 
+@traceable(run_type="chain", name="Compare Medical Reports")
 async def compare_medical_reports(report_a: dict, report_b: dict) -> str:
     """
     Analyzes two reports and generates a structured comparison highlighting key changes.
@@ -109,6 +115,7 @@ async def compare_medical_reports(report_a: dict, report_b: dict) -> str:
         print(f"Comparison failed: {e}")
         return "Failed to compare reports."
 
+@traceable(run_type="chain", name="Explain Abnormal Lab")
 async def explain_abnormal_lab(biomarker: str, value: str, patient_context: str) -> str:
     """
     Generates a plain-language explanation of why a specific lab value might be flagged, 
@@ -138,6 +145,7 @@ async def explain_abnormal_lab(biomarker: str, value: str, patient_context: str)
         print(f"Explain lab failed: {e}")
         return "Failed to explain abnormal lab value."
 
+@traceable(run_type="chain", name="Auto-assign ICD10")
 async def auto_assign_icd10(condition_name: str, notes: str) -> str:
     prompt = f"""
     You are an expert clinical coder.

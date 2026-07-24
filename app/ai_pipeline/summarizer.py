@@ -1,12 +1,16 @@
 import json
 from openai import OpenAI
+from langsmith.wrappers import wrap_openai
+from langsmith import traceable
 import os
-
+from dotenv import load_dotenv
+load_dotenv()
+@traceable(name="Generate Clinical Summary")
 def generate_clinical_summary(document_type: str, extracted_text: str) -> str:
     """
     Generates a document-type-specific clinical summary using LLM.
     """
-    client = OpenAI()
+    client = wrap_openai(OpenAI(api_key=os.environ.get("OPENAI_API_KEY")))
     
     prompts = {
         "blood_test": "You are a medical assistant. Summarize the following blood test results. Highlight any abnormal biomarkers, out-of-range values, and state if everything else is normal.",

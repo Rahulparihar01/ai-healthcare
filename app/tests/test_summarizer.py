@@ -6,8 +6,9 @@ import pytest
 from unittest.mock import patch, MagicMock
 from ai_pipeline.summarizer import generate_clinical_summary
 
+@patch("ai_pipeline.summarizer.wrap_openai", side_effect=lambda x: x)
 @patch("ai_pipeline.summarizer.OpenAI")
-def test_generate_clinical_summary_blood_test(mock_openai):
+def test_generate_clinical_summary_blood_test(mock_openai, mock_wrap):
     mock_client = MagicMock()
     mock_openai.return_value = mock_client
     
@@ -25,8 +26,9 @@ def test_generate_clinical_summary_blood_test(mock_openai):
     assert kwargs["model"] == "gpt-4o-mini"
     assert "blood test" in kwargs["messages"][0]["content"].lower()
 
+@patch("ai_pipeline.summarizer.wrap_openai", side_effect=lambda x: x)
 @patch("ai_pipeline.summarizer.OpenAI")
-def test_generate_clinical_summary_unknown_type(mock_openai):
+def test_generate_clinical_summary_unknown_type(mock_openai, mock_wrap):
     mock_client = MagicMock()
     mock_openai.return_value = mock_client
     
@@ -41,8 +43,9 @@ def test_generate_clinical_summary_unknown_type(mock_openai):
     args, kwargs = mock_client.chat.completions.create.call_args
     assert kwargs["messages"][0]["content"] == "You are a medical assistant. Summarize the following medical document."
 
+@patch("ai_pipeline.summarizer.wrap_openai", side_effect=lambda x: x)
 @patch("ai_pipeline.summarizer.OpenAI")
-def test_generate_clinical_summary_exception(mock_openai):
+def test_generate_clinical_summary_exception(mock_openai, mock_wrap):
     mock_client = MagicMock()
     mock_openai.return_value = mock_client
     mock_client.chat.completions.create.side_effect = Exception("API Error")
