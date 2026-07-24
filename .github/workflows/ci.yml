@@ -22,7 +22,8 @@ jobs:
         pip install pytest "httpx<0.28.0" pytest-asyncio pytest-mock
     - name: Run Pytest
       env:
-        SECRET_KEY: "test_secret_key"
+        SECRET_KEY: "super-secret-key-for-dev-change-in-production
+
       run: |
         pytest app/tests/
         
