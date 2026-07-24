@@ -9,6 +9,7 @@ export default function SuperAdminDashboard() {
   const [hospitals, setHospitals] = useState([]);
   const [labs, setLabs] = useState([]);
   const [pharmacies, setPharmacies] = useState([]);
+  const [auditLogs, setAuditLogs] = useState([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -24,14 +25,16 @@ export default function SuperAdminDashboard() {
 
   const fetchData = async () => {
     try {
-      const [hospRes, labRes, pharmRes] = await Promise.all([
+      const [hospRes, labRes, pharmRes, auditRes] = await Promise.all([
         api.get('/hospitals/list'),
         api.get('/labs/list'),
-        api.get('/pharmacies/list')
+        api.get('/pharmacies/list'),
+        api.get('/identity/audit/logs/all')
       ]);
       setHospitals(hospRes.data);
       setLabs(labRes.data);
       setPharmacies(pharmRes.data);
+      setAuditLogs(auditRes.data);
     } catch (error) {
       console.error("Failed to fetch data", error);
     }
@@ -108,6 +111,10 @@ export default function SuperAdminDashboard() {
           <div className={`nav-item ${activeTab === 'pharmacies' ? 'active' : ''}`} onClick={() => setActiveTab('pharmacies')}>
             <Pill size={20} />
             Pharmacies
+          </div>
+          <div className={`nav-item ${activeTab === 'audit' ? 'active' : ''}`} onClick={() => setActiveTab('audit')}>
+            <Shield size={20} />
+            Audit Logs
           </div>
         </div>
         
@@ -224,6 +231,63 @@ export default function SuperAdminDashboard() {
                       </td>
                     </tr>
                   ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+
+        {activeTab === 'audit' && (
+          <>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+              <div>
+                <h1 style={{ fontSize: '2.25rem', fontWeight: 600, color: '#000', marginBottom: '0.25rem' }}>
+                  System Audit Logs
+                </h1>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '1.1rem' }}>
+                  View a real-time ledger of system access and actions.
+                </p>
+              </div>
+            </div>
+
+            <div className="glass-panel" style={{ background: 'white', padding: '0', overflow: 'hidden' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                <thead>
+                  <tr style={{ background: 'var(--bg-tertiary)', color: 'var(--text-secondary)' }}>
+                    <th style={{ padding: '1rem 1.5rem', fontWeight: 500 }}>Timestamp</th>
+                    <th style={{ padding: '1rem 1.5rem', fontWeight: 500 }}>Action</th>
+                    <th style={{ padding: '1rem 1.5rem', fontWeight: 500 }}>Status</th>
+                    <th style={{ padding: '1rem 1.5rem', fontWeight: 500 }}>IP Address</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {auditLogs.map(log => (
+                    <tr key={log.id} style={{ borderTop: '1px solid var(--border-light)' }}>
+                      <td style={{ padding: '1rem 1.5rem', color: 'var(--text-secondary)' }}>
+                        {new Date(log.timestamp).toLocaleString()}
+                      </td>
+                      <td style={{ padding: '1rem 1.5rem', fontWeight: 500, color: '#000' }}>
+                        {log.action}
+                      </td>
+                      <td style={{ padding: '1rem 1.5rem' }}>
+                        <span style={{ 
+                          color: log.status === 'SUCCESS' ? 'green' : 'red', 
+                          fontWeight: 'bold', 
+                          background: log.status === 'SUCCESS' ? '#e6ffe6' : '#ffe6e6', 
+                          padding: '0.25rem 0.5rem', 
+                          borderRadius: '4px' 
+                        }}>
+                          {log.status}
+                        </span>
+                      </td>
+                      <td style={{ padding: '1rem 1.5rem', color: 'var(--text-secondary)' }}>{log.ip_address || 'N/A'}</td>
+                    </tr>
+                  ))}
+                  {auditLogs.length === 0 && (
+                    <tr>
+                      <td colSpan="4" style={{ padding: '1.5rem', textAlign: 'center', color: 'var(--text-tertiary)' }}>No audit logs found.</td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>

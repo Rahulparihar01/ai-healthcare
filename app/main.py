@@ -5,8 +5,9 @@ import os
 
 from database import engine
 import models
-from routers import hospital, doctor, facilities, patient, records, departments, knowledge_graph, copilot, alerts, timeline, search, analytics, predictions
+from routers import hospital, doctor, facilities, patient, records, departments, knowledge_graph, copilot, alerts, timeline, search, analytics, predictions, appointments, labs
 from routers.identity import authentication, authorization, verification, profile, sessions, devices, recovery, audit
+from audit_middleware import AuditMiddleware
 
 # Alembic will handle database schema creation
 # models.Base.metadata.create_all(bind=engine)
@@ -14,6 +15,8 @@ from routers.identity import authentication, authorization, verification, profil
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(title="HealthID AI Backend API")
+
+app.add_middleware(AuditMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
@@ -39,6 +42,8 @@ app.include_router(facilities.router)
 app.include_router(departments.router)
 app.include_router(patient.router)
 app.include_router(records.router)
+app.include_router(appointments.router)
+app.include_router(labs.router)
 app.include_router(knowledge_graph.router)
 app.include_router(copilot.router)
 app.include_router(alerts.router)
@@ -51,5 +56,5 @@ app.include_router(predictions.router)
 def read_root():
     return {"message": "Welcome to HealthID AI API. The platform is secure and functional."}
 
-# Mount static files
-app.mount("/public", StaticFiles(directory=os.path.join(os.path.dirname(__file__), "public")), name="public")
+# Static files are no longer mounted publicly for security reasons.
+# Use authenticated endpoints to access resources.

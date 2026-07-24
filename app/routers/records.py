@@ -1,14 +1,19 @@
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Query
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Dict, Any, List, Optional
 from datetime import datetime
 import os
 import sys
+import hmac
+import hashlib
+import json
 
 from database import get_db
 import models
-from auth import RequireRole, get_current_user
+from auth import get_current_user, SECRET_KEY
+from auth_middleware import require_permission
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'ai_pipeline')))
 from copilot_engine import compare_medical_reports, auto_assign_icd10
@@ -24,6 +29,37 @@ except ImportError:
         return {"error": "Could not load extractor module.", "report_category": "Unknown"}
     def process_document_background(record_id, record_type, file_path):
         pass
+
+def verify_patient_access(patient: models.PatientProfile, current_user: models.User, db: Session):
+    if current_user.role == models.RoleEnum.SUPER_ADMIN.value or current_user.role == models.RoleEnum.HOSPITAL_ADMIN.value:
+        return
+    
+    if current_user.role == models.RoleEnum.PATIENT.value:
+        if patient.user_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Not authorized to access this patient's records")
+        return
+        
+    if current_user.role == models.RoleEnum.DOCTOR.value:
+        doctor_profile = db.query(models.DoctorProfile).filter(models.DoctorProfile.user_id == current_user.id).first()
+        if doctor_profile:
+            assignment = db.query(models.PatientAssignment).filter(
+                models.PatientAssignment.doctor_id == doctor_profile.id,
+                models.PatientAssignment.patient_id == patient.id,
+                models.PatientAssignment.status == "Active"
+            ).first()
+            if assignment:
+                return
+                
+            consent = db.query(models.PatientConsent).filter(
+                models.PatientConsent.patient_id == patient.id,
+                models.PatientConsent.provider_id == current_user.id,
+                models.PatientConsent.status == "Active"
+            ).first()
+            if consent:
+                return
+                
+        raise HTTPException(status_code=403, detail="No active assignment or consent for this patient")
+
 
 router = APIRouter(prefix="/records", tags=["Medical Records"])
 
@@ -49,7 +85,7 @@ async def create_medical_record(
     health_id: str,
     record: RecordCreate,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(RequireRole([models.RoleEnum.DOCTOR.value]))
+    current_user: models.User = Depends(require_permission("diagnosis.create"))
 ):
     patient = db.query(models.PatientProfile).filter(models.PatientProfile.health_id == health_id).first()
     if not patient:
@@ -113,12 +149,25 @@ async def create_medical_record(
         )
 
     elif record.record_type == 'prescription':
+        # E-Prescription Enhancements: Generate a cryptographic signature
+        prescription_payload = {
+            "patient_id": patient.id,
+            "doctor_id": doctor_id,
+            "medications": record.data.get('medications', []),
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        payload_bytes = json.dumps(prescription_payload, sort_keys=True).encode('utf-8')
+        signature = hmac.new(SECRET_KEY.encode('utf-8'), msg=payload_bytes, digestmod=hashlib.sha256).hexdigest()
+        
+        enhanced_instructions = record.data.get('instructions', '')
+        enhanced_instructions += f"\n\n--- DIGITAL SIGNATURE ---\nIssuer ID: {doctor_id}\nSignature: {signature}\n-------------------------"
+        
         db_pres = models.Prescription(
             visit_id=record.visit_id,
             patient_id=patient.id,
             doctor_id=doctor_id,
             medications=record.data.get('medications', []),
-            instructions=record.data.get('instructions')
+            instructions=enhanced_instructions
         )
         db.add(db_pres)
         db.flush()
@@ -154,7 +203,7 @@ async def upload_report(
     visit_id: Optional[int] = Form(None),
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(RequireRole([models.RoleEnum.DOCTOR.value, models.RoleEnum.LAB_TECHNICIAN.value]))
+    current_user: models.User = Depends(require_permission("document.upload"))
 ):
     patient = db.query(models.PatientProfile).filter(models.PatientProfile.health_id == health_id).first()
     if not patient:
@@ -163,7 +212,7 @@ async def upload_report(
     if not file.filename.endswith((".pdf", ".jpg", ".png", ".jpeg")):
         raise HTTPException(status_code=400, detail="Invalid file format.")
     
-    upload_dir = os.path.join(os.path.dirname(__file__), "..", "public", "uploads")
+    upload_dir = os.path.join(os.path.dirname(__file__), "..", "private", "uploads")
     os.makedirs(upload_dir, exist_ok=True)
     
     safe_filename = f"{health_id}_{int(datetime.utcnow().timestamp())}_{file.filename}"
@@ -174,8 +223,6 @@ async def upload_report(
             content = await file.read()
             buffer.write(content)
             
-        file_url = f"/public/uploads/{safe_filename}"
-        
         created_id = None
         timeline_event = None
         
@@ -185,12 +232,13 @@ async def upload_report(
                 patient_id=patient.id,
                 test_name="Processing...",
                 results={},
-                file_url=file_url,
+                file_url="",
                 processing_status="Processing"
             )
             db.add(db_lab)
             db.flush()
             created_id = db_lab.id
+            db_lab.file_url = safe_filename
             
             timeline_event = models.TimelineEvent(
                 patient_id=patient.id,
@@ -205,13 +253,14 @@ async def upload_report(
                 visit_id=visit_id,
                 patient_id=patient.id,
                 scan_type="Processing...",
-                file_url=file_url,
+                file_url="",
                 ai_analysis={},
                 processing_status="Processing"
             )
             db.add(db_rad)
             db.flush()
             created_id = db_rad.id
+            db_rad.file_url = safe_filename
             
             timeline_event = models.TimelineEvent(
                 patient_id=patient.id,
@@ -226,13 +275,14 @@ async def upload_report(
                 patient_id=patient.id,
                 uploader_id=current_user.id,
                 document_type="Processing...",
-                file_url=file_url,
+                file_url="",
                 extracted_data={},
                 processing_status="Processing"
             )
             db.add(db_doc)
             db.flush()
             created_id = db_doc.id
+            db_doc.file_url = safe_filename
             
             timeline_event = models.TimelineEvent(
                 patient_id=patient.id,
@@ -251,7 +301,8 @@ async def upload_report(
         if created_id and record_type in ['lab_report', 'radiology', 'document']:
             process_document_background.delay(created_id, record_type, file_path)
 
-        return {"message": "Upload successful and queued for processing", "id": created_id, "file_url": file_url}
+        file_url_out = f"/records/download/{record_type if record_type != 'document' else 'document'}/{created_id}"
+        return {"message": "Upload successful and queued for processing", "id": created_id, "file_url": file_url_out}
 
     except Exception as e:
         if os.path.exists(file_path):
@@ -262,6 +313,8 @@ async def upload_report(
 def get_patient_timeline(
     health_id: str,
     event_type: Optional[str] = None,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=1000),
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
@@ -269,12 +322,14 @@ def get_patient_timeline(
     if not patient:
         raise HTTPException(status_code=404, detail="Patient not found")
         
+    verify_patient_access(patient, current_user, db)
+        
     query = db.query(models.TimelineEvent).filter(models.TimelineEvent.patient_id == patient.id)
     
     if event_type:
         query = query.filter(models.TimelineEvent.event_type == event_type)
         
-    events = query.order_by(models.TimelineEvent.event_date.desc()).all()
+    events = query.order_by(models.TimelineEvent.event_date.desc()).offset(skip).limit(limit).all()
     return events
 
 @router.get("/profile")
@@ -302,6 +357,10 @@ def get_record_profile(
     if not record:
         raise HTTPException(status_code=404, detail="Record not found")
         
+    patient = db.query(models.PatientProfile).filter(models.PatientProfile.id == record.patient_id).first()
+    if patient:
+        verify_patient_access(patient, current_user, db)
+        
     return record
 
 @router.put("/update")
@@ -310,7 +369,7 @@ def update_record(
     reference_id: int,
     data: Dict[str, Any],
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(RequireRole([models.RoleEnum.DOCTOR.value]))
+    current_user: models.User = Depends(require_permission("diagnosis.update"))
 ):
     """Update fields on a specific record."""
     record = None
@@ -329,6 +388,10 @@ def update_record(
         
     if not record:
         raise HTTPException(status_code=404, detail="Record not found")
+        
+    patient = db.query(models.PatientProfile).filter(models.PatientProfile.id == record.patient_id).first()
+    if patient:
+        verify_patient_access(patient, current_user, db)
         
     for key, value in data.items():
         if hasattr(record, key):
@@ -355,7 +418,7 @@ class CompareRequest(BaseModel):
 async def compare_records(
     request: CompareRequest,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(RequireRole([models.RoleEnum.DOCTOR.value, models.RoleEnum.SUPER_ADMIN.value]))
+    current_user: models.User = Depends(require_permission("document.view"))
 ):
     doc1 = db.query(models.MedicalDocument).filter(models.MedicalDocument.id == request.doc1_id).first()
     doc2 = db.query(models.MedicalDocument).filter(models.MedicalDocument.id == request.doc2_id).first()
@@ -365,3 +428,32 @@ async def compare_records(
         
     delta = await compare_medical_reports(doc1.extracted_data, doc2.extracted_data)
     return {"doc1_id": doc1.id, "doc2_id": doc2.id, "comparison": delta}
+
+@router.get("/download/{record_type}/{id}")
+def download_record_file(
+    record_type: str,
+    id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    record = None
+    if record_type == 'lab_report':
+        record = db.query(models.LabReport).filter(models.LabReport.id == id).first()
+    elif record_type == 'radiology':
+        record = db.query(models.Radiology).filter(models.Radiology.id == id).first()
+    elif record_type == 'document':
+        record = db.query(models.MedicalDocument).filter(models.MedicalDocument.id == id).first()
+        
+    if not record:
+        raise HTTPException(status_code=404, detail="Record not found")
+        
+    patient = db.query(models.PatientProfile).filter(models.PatientProfile.id == record.patient_id).first()
+    if patient:
+        verify_patient_access(patient, current_user, db)
+        
+    file_path = os.path.join(os.path.dirname(__file__), "..", "private", "uploads", record.file_url)
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="File not found on disk")
+        
+    return FileResponse(file_path)
+

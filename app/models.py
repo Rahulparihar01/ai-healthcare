@@ -282,6 +282,23 @@ class FileRecord(Base, AuditableMixin):
 
 # --- PHASE 5: MEDICAL RECORDS MODELS ---
 
+class Appointment(Base, AuditableMixin):
+    __tablename__ = "appointments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    patient_id = Column(Integer, ForeignKey("patient_profiles.id"))
+    doctor_id = Column(Integer, ForeignKey("doctor_profiles.id"))
+    hospital_id = Column(Integer, ForeignKey("hospitals.id"), nullable=True)
+    
+    start_time = Column(DateTime, index=True)
+    end_time = Column(DateTime, nullable=True)
+    status = Column(String, default="Scheduled") # Scheduled, Completed, Cancelled, No-Show
+    notes = Column(String, nullable=True)
+
+    patient = relationship("PatientProfile")
+    doctor = relationship("DoctorProfile")
+    hospital = relationship("Hospital")
+
 class Visit(Base, AuditableMixin):
     __tablename__ = "visits"
 
@@ -484,3 +501,86 @@ class AIAuditLog(Base, AuditableMixin):
     
     patient_id = Column(Integer, ForeignKey("patient_profiles.id"), nullable=True)
     patient = relationship("PatientProfile")
+
+# --- PHASE 6: RBAC & SCOPED ACCESS MODELS ---
+
+class Permission(Base, AuditableMixin):
+    __tablename__ = "permissions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True, index=True) # e.g., "diagnosis.create"
+    resource = Column(String) # e.g., "diagnosis"
+    action = Column(String) # e.g., "create"
+    description = Column(String, nullable=True)
+
+class RolePermission(Base, AuditableMixin):
+    __tablename__ = "role_permissions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    role_id = Column(String, index=True) # References RoleEnum value
+    permission_id = Column(Integer, ForeignKey("permissions.id"))
+    
+    permission = relationship("Permission")
+
+class LabTestOrder(Base, AuditableMixin):
+    __tablename__ = "lab_test_orders"
+
+    id = Column(Integer, primary_key=True, index=True)
+    visit_id = Column(Integer, ForeignKey("visits.id"), nullable=True)
+    patient_id = Column(Integer, ForeignKey("patient_profiles.id"))
+    doctor_id = Column(Integer, ForeignKey("doctor_profiles.id"), nullable=True)
+    
+    tests = Column(JSON, default=[]) # e.g. [{"name": "CBC", "priority": "High"}]
+    clinical_notes = Column(String, nullable=True)
+    status = Column(String, default="Pending") # Pending, Completed, Cancelled
+
+    visit = relationship("Visit")
+    patient = relationship("PatientProfile")
+    doctor = relationship("DoctorProfile")
+
+class PatientAssignment(Base, AuditableMixin):
+    __tablename__ = "patient_assignments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    doctor_id = Column(Integer, ForeignKey("doctor_profiles.id"))
+    patient_id = Column(Integer, ForeignKey("patient_profiles.id"))
+    
+    status = Column(String, default="Active") # Active, Ended
+    assigned_at = Column(DateTime, default=datetime.utcnow)
+    ended_at = Column(DateTime, nullable=True)
+
+    doctor = relationship("DoctorProfile")
+    patient = relationship("PatientProfile")
+
+class PatientConsent(Base, AuditableMixin):
+    __tablename__ = "patient_consents"
+
+    id = Column(Integer, primary_key=True, index=True)
+    patient_id = Column(Integer, ForeignKey("patient_profiles.id"))
+    provider_id = Column(Integer, ForeignKey("users.id"))
+    hospital_id = Column(Integer, ForeignKey("hospitals.id"), nullable=True)
+    
+    scope = Column(String) # e.g. "Full", "Read-Only"
+    status = Column(String, default="Active") # Active, Revoked, Expired
+    expires_at = Column(DateTime, nullable=True)
+
+    patient = relationship("PatientProfile")
+    provider = relationship("User")
+    hospital = relationship("Hospital")
+
+class EmergencyAccess(Base, AuditableMixin):
+    __tablename__ = "emergency_access_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    patient_id = Column(Integer, ForeignKey("patient_profiles.id"))
+    provider_id = Column(Integer, ForeignKey("users.id"))
+    
+    reason = Column(String)
+    approved_by = Column(Integer, ForeignKey("users.id"), nullable=True) # If staff assisted
+    status = Column(String, default="Active")
+    expires_at = Column(DateTime)
+    audit_reference = Column(String, nullable=True)
+
+    patient = relationship("PatientProfile")
+    provider = relationship("User", foreign_keys=[provider_id])
+    approver = relationship("User", foreign_keys=[approved_by])

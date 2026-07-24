@@ -82,7 +82,7 @@ async def test_rag_chat(mock_chat, mock_semantic_search):
     mock_semantic_search.return_value = [{"title": "Visit", "summary": "Patient has diabetes", "event_date": "2023-01-01"}]
     mock_response = MagicMock()
     mock_response.choices = [MagicMock()]
-    mock_response.choices[0].message.content = "The patient has diabetes."
+    mock_response.choices[0].message.content = '{"answer": "The patient has diabetes.", "confidence_score": 95}'
     mock_chat.return_value = mock_response
 
     from routers.copilot import copilot_chat, ChatRequest

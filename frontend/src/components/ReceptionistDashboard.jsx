@@ -9,6 +9,7 @@ export default function ReceptionistDashboard() {
   const [showModal, setShowModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [patients, setPatients] = useState([]);
+  const [appointments, setAppointments] = useState([]);
   
   // Registration Success State
   const [newPatient, setNewPatient] = useState(null);
@@ -30,6 +31,21 @@ export default function ReceptionistDashboard() {
       console.error("Failed to fetch patients", error);
     }
   };
+
+  const fetchAppointments = async () => {
+    try {
+      const res = await api.get('/appointments/list');
+      setAppointments(res.data);
+    } catch (error) {
+      console.error("Failed to fetch appointments", error);
+    }
+  };
+
+  React.useEffect(() => {
+    if (activeTab === 'appointments') {
+      fetchAppointments();
+    }
+  }, [activeTab]);
 
   const handleRegister = async (e) => {
     e.preventDefault();
@@ -182,6 +198,49 @@ export default function ReceptionistDashboard() {
                       <td style={{ padding: '1rem 1.5rem', textAlign: 'right' }}>
                         <button className="btn btn-secondary" style={{ padding: '0.4rem' }}>View Profile</button>
                       </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+
+        {activeTab === 'appointments' && (
+          <>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+              <div>
+                <h1 style={{ fontSize: '2.25rem', fontWeight: 600, color: '#000', marginBottom: '0.25rem' }}>
+                  Appointments
+                </h1>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '1.1rem' }}>
+                  Manage scheduled appointments for all doctors.
+                </p>
+              </div>
+            </div>
+
+            <div className="glass-panel" style={{ background: 'white', padding: '0', overflow: 'hidden' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                <thead>
+                  <tr style={{ background: 'var(--bg-tertiary)', color: 'var(--text-secondary)' }}>
+                    <th style={{ padding: '1rem 1.5rem', fontWeight: 500 }}>ID</th>
+                    <th style={{ padding: '1rem 1.5rem', fontWeight: 500 }}>Patient ID</th>
+                    <th style={{ padding: '1rem 1.5rem', fontWeight: 500 }}>Doctor ID</th>
+                    <th style={{ padding: '1rem 1.5rem', fontWeight: 500 }}>Start Time</th>
+                    <th style={{ padding: '1rem 1.5rem', fontWeight: 500 }}>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {appointments.length === 0 && (
+                    <tr><td colSpan="5" style={{ padding: '1rem 1.5rem', textAlign: 'center' }}>No appointments found.</td></tr>
+                  )}
+                  {appointments.map(apt => (
+                    <tr key={apt.id} style={{ borderTop: '1px solid var(--border-light)' }}>
+                      <td style={{ padding: '1rem 1.5rem', color: 'var(--accent-blue)', fontWeight: 500 }}>{apt.id}</td>
+                      <td style={{ padding: '1rem 1.5rem', fontWeight: 500, color: '#000' }}>{apt.patient_id}</td>
+                      <td style={{ padding: '1rem 1.5rem', color: 'var(--text-secondary)' }}>{apt.doctor_id}</td>
+                      <td style={{ padding: '1rem 1.5rem', color: 'var(--text-secondary)' }}>{new Date(apt.start_time).toLocaleString()}</td>
+                      <td style={{ padding: '1rem 1.5rem', color: 'var(--text-secondary)' }}>{apt.status}</td>
                     </tr>
                   ))}
                 </tbody>

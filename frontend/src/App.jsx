@@ -9,6 +9,7 @@ import SuperAdminDashboard from './components/SuperAdminDashboard';
 import HospitalAdminDashboard from './components/HospitalAdminDashboard';
 import ReceptionistDashboard from './components/ReceptionistDashboard';
 import PatientDashboard from './components/PatientDashboard';
+import LabTechnicianDashboard from './components/LabTechnicianDashboard';
 import './index.css';
 
 // A simple wrapper to protect routes
@@ -36,6 +37,7 @@ const getDashboardRoute = (role) => {
     case 'Hospital Admin': return '/dashboard/hospital-admin';
     case 'Receptionist': return '/dashboard/receptionist';
     case 'Patient': return '/dashboard/patient';
+    case 'Lab Technician': return '/dashboard/lab-technician';
     default: return '/dashboard/doctor';
   }
 };
@@ -87,6 +89,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute allowedRoles={['Patient']}>
             <PatientDashboard />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/dashboard/lab-technician" 
+        element={
+          <ProtectedRoute allowedRoles={['Lab Technician', 'Super Admin']}>
+            <LabTechnicianDashboard />
           </ProtectedRoute>
         } 
       />

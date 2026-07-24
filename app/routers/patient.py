@@ -270,7 +270,7 @@ def register_patient_full(
         address=data.address,
         emergency_contact_name=data.emergency_contact_name,
         emergency_contact_phone=data.emergency_contact_phone,
-        emergency_contact_relation=data.emergency_contact_relation,
+        emergency_contact_relation=data.relationship,
         organ_donor=data.organ_donor,
         known_allergies=data.known_allergies,
         chronic_diseases=data.chronic_diseases,
