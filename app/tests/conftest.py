@@ -4,8 +4,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+import database
 from database import Base, get_db
-from main import app
 
 SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
 
@@ -14,7 +14,13 @@ engine = create_engine(
     connect_args={"check_same_thread": False},
     poolclass=StaticPool,
 )
-TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine, expire_on_commit=False)
+
+# Patch SessionLocal globally for middlewares and background tasks BEFORE importing main
+database.SessionLocal = TestingSessionLocal
+
+from main import app
+import models  # Ensure models are registered with Base.metadata before create_all
 
 @pytest.fixture(scope="session", autouse=True)
 def setup_database():
