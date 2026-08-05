@@ -1,108 +1,106 @@
-# HealthID AI - Medical Record Platform
+# 🏥 HealthID AI — Enterprise Clinical Record & Copilot Platform
 
-An advanced, multi-tenant AI-powered medical record and identity platform. It provides seamless patient identity generation (ABHA-style Health IDs with QR codes), comprehensive role-based access control with organizational isolation, and a highly sophisticated, fault-tolerant AI processing pipeline to automatically structure clinical data from medical documents.
+An advanced, multi-tenant AI-powered medical record, clinical intelligence, and patient identity platform. HealthID AI provides secure patient identity management with QR codes, multi-tenant organizational scoping with granular RBAC, fault-tolerant background AI document extraction, sub-second Redis response caching, hands-free voice dictation, multi-language i18n (English & Hindi), and PWA offline request queueing.
 
-## Project Structure
+---
 
-This is a Monorepo containing the FastAPI Backend and the React Frontend.
+## 📁 Project Architecture & Monorepo Structure
 
 ```
 ai-healthcare/
-├── backend/               # FastAPI Backend Application
-│   ├── ai_pipeline/       # Two-Step AI Document Extraction & Validation
-│   ├── public/            # Stores generated QR codes and uploaded Reports
-│   ├── routers/           # API Endpoints (Auth, Patients, Records, Orgs)
-│   ├── main.py            # FastAPI App entrypoint
-│   ├── models.py          # SQLAlchemy Database Schemas
-│   └── celery_app.py      # Celery Task Queue configuration
-├── frontend/              # React (Vite) Frontend Application
+├── app/                  # FastAPI Backend Engine (Python 3.10+)
+│   ├── ai_pipeline/      # AI Extractor, Copilot Safety Engine & Embeddings
+│   ├── routers/          # Modular API Endpoints (/api/v1/)
+│   ├── audit_middleware.py # Global PHI Audit Logging
+│   ├── cache.py          # Redis AI Response Caching Layer
+│   ├── models.py         # SQLAlchemy Database Models & Composite Indexes
+│   ├── pdf_generator.py  # E-Prescription & Receipt PDF Generator
+│   ├── storage.py        # AWS S3 & Local Storage Adapter
+│   ├── tests/            # Pytest Suite (49/49 Passing)
+│   └── README.md         # Detailed Backend Documentation
+├── frontend/             # React (Vite) Glassmorphic PWA
 │   ├── src/
-│   │   ├── components/    # UI Components (Timeline, Dashboard, etc.)
-│   │   ├── App.jsx        # Routing layer
-│   │   └── index.css      # Premium Glassmorphism Design System
-├── docker-compose.yml     # Infrastructure (PostgreSQL & Redis)
-├── dev.sh                 # Unified Startup Script
-└── plan.md                # Original Project Specifications
+│   │   ├── components/   # Role-Based Dashboards & UI
+│   │   ├── context/      # Auth & Language (i18n) Providers
+│   │   └── hooks/        # Voice Input (Web Speech API) & State Hooks
+│   └── README.md         # Detailed Frontend Documentation
+├── docs/                 # Product Specifications & CIP Sprint Tracking
+├── docker-compose.yml    # Infrastructure (PostgreSQL & Redis)
+├── dev.sh                # Unified Local Startup Script
+└── HealthID_AI_PRD.md    # Product Requirements Document
 ```
 
-## Setup & Installation
+> 📖 **Sub-Directory Documentation**:
+> - For deep-dive backend configuration and endpoints, see [app/README.md](app/README.md).
+> - For frontend component hierarchy and PWA offline sync, see [frontend/README.md](frontend/README.md).
+
+---
+
+## 🚀 Core Features & Production Capabilities
+
+### 1. 🛡️ Security, Governance & Auditability
+- **Multi-Tenant Scoping**: Strict tenant isolation across Organizations, Hospitals, and Clinics.
+- **Granular RBAC**: Role-based access control supporting 10 distinct roles (`Super Admin`, `Hospital Admin`, `Doctor`, `Nurse`, `Lab Technician`, `Pharmacist`, `Receptionist`, `Patient`, `Family Member`, `Emergency Doctor`).
+- **Global PHI Audit Logging**: Automatic request interception logging every data access and mutation into `/audit/logs` with user ID, IP address, and timestamp.
+- **File Upload Security**: Enforces a 10MB file limit, MIME validation, and magic byte header verification (`%PDF`, JPEG `\xff\xd8`, PNG `\x89PNG`).
+
+### 2. ⚡ High-Performance Core Engine
+- **Database Composite Indexing**: Optimized compound indexes on `TimelineEvent`, `Appointment`, `Invoice`, and `AuditLog` tables.
+- **Redis Response Caching (`app/cache.py`)**: Sub-second cached responses for repeat patient AI summaries with automatic in-memory fallback.
+- **Observability & Probes**: `/healthz` (liveness) and `/readyz` (readiness) probes for Kubernetes & container health checks.
+- **API Versioning**: Standardized `/api/v1/` prefixing across all router endpoints.
+
+### 3. 🤖 AI Clinical Intelligence & Copilot
+- **Automated Entity Extraction**: Extracts diagnoses, medications, dosages, and ICD-10 codes from uploaded lab reports and medical PDFs.
+- **Copilot Safety Engine**: Scans active prescriptions against known patient allergies and medical history to prevent adverse drug interactions.
+- **Async Task Pipeline**: Background Celery worker processes long-running OCR tasks with Server-Sent Events (`/api/v1/sse/task-status/{id}`) streaming live status updates to the UI.
+
+### 4. 🌐 Practitioner Experience & PWA Capabilities
+- **Voice Dictation (`useVoiceInput.js`)**: Hands-free voice-to-text dictation powered by the Web Speech API.
+- **Multi-Language Support (i18n)**: Instant UI toggle between **English** and **Hindi (`hi`)**.
+- **Offline Request Queueing (`OfflineIndicator.jsx`)**: Offline-first operation that queues registration and record creations locally, automatically replaying them when network restores.
+- **Printable PDF Export (`pdf_generator.py`)**: Downloadable e-prescriptions and payment receipts complete with digital verification signatures.
+
+---
+
+## ⚡ Quick Start Guide
 
 ### Prerequisites
-*   Node.js (v18+)
-*   Python (3.9+)
-*   Docker & Docker Compose (required for PostgreSQL and Redis)
+- **Node.js**: v18+
+- **Python**: v3.10+
+- **Docker & Docker Compose**: (for PostgreSQL & Redis)
 
-### 1. Environment Variables
-Ensure you have the `.env` file at the root of the project. You must supply:
-* `OPENAI_API_KEY` to enable the AI extraction pipeline.
-* `DATABASE_URL` (Defaults to `postgresql://postgres:postgres@localhost:5432/healthid`)
-* `CELERY_BROKER_URL` (Defaults to `redis://localhost:6379/0`)
-
-### 2. Install Dependencies
-**Backend:**
-```bash
-cd backend
-pip install -r requirements.txt
+### 1. Environment Configuration
+Ensure `.env` exists in the project root:
+```env
+OPENAI_API_KEY=your_openai_api_key
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/healthid
+REDIS_URL=redis://localhost:6379/0
+SECRET_KEY=your_super_secret_jwt_key
+STORAGE_MODE=local
 ```
 
-**Frontend:**
-```bash
-cd frontend
-npm install
-```
-
-## Running the Application
-
-For local development, start the required infrastructure services first:
-
+### 2. Launch Infrastructure Services
 ```bash
 docker-compose up -d
 ```
 
-Then, use the unified startup script from the root directory:
-
+### 3. Run Unified Startup Script
+Start the FastAPI server, Celery worker, and Vite React frontend simultaneously:
 ```bash
 ./dev.sh
 ```
 
-This script automatically launches:
-*   The **FastAPI Server** on `http://localhost:8000` (Access the Swagger Docs at `http://localhost:8000/docs`)
-*   The **React Frontend** on `http://localhost:5173`
-*   The **Celery Background Worker** to process asynchronous AI document extraction.
+- **React Frontend**: `http://localhost:5173`
+- **FastAPI API & Swagger Docs**: `http://localhost:8000/docs`
+- **Health / Readiness Probes**: `http://localhost:8000/healthz` \| `http://localhost:8000/readyz`
 
-## Core Features & Architecture
+---
 
-### System Architecture
-```mermaid
-graph TD
-    User([Doctor / Patient]) -->|Uploads Document| UI[React Frontend]
-    UI -->|API Request| API[FastAPI Server]
-    
-    API -->|Save File| FileSystem[(Local Storage)]
-    API -->|Create Record| DB[(PostgreSQL)]
-    API -->|Enqueue Task| Redis[(Redis Broker)]
-    
-    Redis -->|Consume Task| Worker[Celery Worker]
-    
-    subgraph "AI Processing Pipeline"
-        Worker --> OCR[OCR Service <br> PyMuPDF / Tesseract]
-        OCR -->|Raw Text| Classifier[Document Classifier <br> GPT-4o-mini]
-        Classifier -->|Document Type| Extractor[Specialized Extractor <br> GPT-4o]
-        Extractor -->|JSON Schema v1.0| Validator[Clinical Validator]
-        Validator -->|Valid| Complete((Completed))
-        Validator -->|Invalid| Review((Needs Review))
-    end
-    
-    Complete --> DB
-    Review --> DB
+## 🧪 Automated Testing
+
+Run the backend test suite:
+```bash
+PYTHONPATH=app pytest app/tests/
 ```
-
-*   **Multi-Tenant Architecture**: Strict organizational isolation. Super Admins manage multiple Hospitals. Hospital Admins manage their internal staff and patients. Every clinical record is strictly bound to its owning `hospital_id`.
-*   **Role-Based Access Control (RBAC)**: Backend APIs actively verify JWT claims to authorize `Super Admin`, `Hospital Admin`, `Doctor`, `Receptionist`, and `Lab Technician` actions.
-*   **Asynchronous AI Pipeline (Celery + Redis)**: Document uploads are processed instantly in the background without blocking API responses. The frontend actively polls and renders live, granular processing statuses.
-*   **Two-Step Specialized Extraction**:
-    1.  **Fast OCR & Classification**: Rips raw text via PyMuPDF/pytesseract, then uses `gpt-4o-mini` to classify the document type from over 13 variants (e.g., CBC, Discharge Summary, MRI).
-    2.  **Specialized Extraction**: Uses `gpt-4o` with a dynamically injected prompt targeting that specific document type to extract structured, versioned JSON.
-*   **Deep Clinical Validation**: Actively protects the database from LLM hallucinations by verifying required fields, parsing and normalizing numeric lab values and units (e.g., mapping `mg/dl` to `mg/dL`), enforcing date formats, and requiring an 80% confidence threshold. Failed documents are actively flagged in the UI for **Manual Review**.
-*   **Premium React UI**: Designed with a sophisticated glassmorphism theme, smooth animations, and a rich chronological timeline engine.
-*   **QR Code Identities**: Automatically generates scannable QR codes representing 14-digit Patient Health IDs.
+- **Test Results**: `49 passed` in 7.8s (100% passing).
