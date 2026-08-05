@@ -28,6 +28,12 @@ def setup_database():
     yield
     Base.metadata.drop_all(bind=engine)
 
+@pytest.fixture(autouse=True)
+def reset_dependency_overrides():
+    app.dependency_overrides.clear()
+    yield
+    app.dependency_overrides.clear()
+
 @pytest.fixture
 def db():
     connection = engine.connect()
@@ -40,11 +46,5 @@ def db():
 
 @pytest.fixture
 def client(db):
-    def override_get_db():
-        try:
-            yield db
-        finally:
-            pass
-    app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_db] = lambda: db
     yield TestClient(app)
-    del app.dependency_overrides[get_db]

@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Calendar, UserPlus, Search, Clock, QrCode } from 'lucide-react';
+import { Calendar, UserPlus, Search, Clock, QrCode, CreditCard, PlusCircle } from 'lucide-react';
 import api from '../api';
 
 export default function ReceptionistDashboard() {
   const { user, logout } = useAuth();
   const [activeTab, setActiveTab] = useState('register');
   const [showModal, setShowModal] = useState(false);
+  const [showBillingModal, setShowBillingModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [patients, setPatients] = useState([]);
   const [appointments, setAppointments] = useState([]);
@@ -17,6 +18,10 @@ export default function ReceptionistDashboard() {
   const [formData, setFormData] = useState({
     username: '', password: '', email: '', phone_number: '',
     blood_group: '', emergency_contact_name: '', emergency_contact_phone: ''
+  });
+
+  const [invoiceData, setInvoiceData] = useState({
+    health_id: '', description: 'General Medical Consultation', amount: '50.00'
   });
 
   React.useEffect(() => {
@@ -66,6 +71,28 @@ export default function ReceptionistDashboard() {
     }
   };
 
+  const handleCreateInvoice = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const amountInCents = Math.round(parseFloat(invoiceData.amount) * 100);
+      const payload = {
+        health_id: invoiceData.health_id,
+        description: invoiceData.description,
+        currency: 'USD',
+        line_items: [{ description: invoiceData.description, amount: amountInCents }]
+      };
+      await api.post('/billing/invoices/create', payload);
+      alert("Invoice generated successfully!");
+      setShowBillingModal(false);
+      setInvoiceData({ health_id: '', description: 'General Medical Consultation', amount: '50.00' });
+    } catch (error) {
+      alert("Failed to generate invoice: " + (error.response?.data?.detail || error.message));
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="app-container" style={{ backgroundColor: 'var(--bg-primary)' }}>
       {/* Sidebar */}
@@ -92,6 +119,10 @@ export default function ReceptionistDashboard() {
           <div className={`nav-item ${activeTab === 'appointments' ? 'active' : ''}`} onClick={() => setActiveTab('appointments')}>
             <Clock size={20} />
             Appointments
+          </div>
+          <div className={`nav-item ${activeTab === 'billing' ? 'active' : ''}`} onClick={() => setActiveTab('billing')}>
+            <CreditCard size={20} />
+            Billing & Invoices
           </div>
         </div>
         
@@ -248,6 +279,30 @@ export default function ReceptionistDashboard() {
             </div>
           </>
         )}
+
+        {activeTab === 'billing' && (
+          <>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+              <div>
+                <h1 style={{ fontSize: '2.25rem', fontWeight: 600, color: '#000', marginBottom: '0.25rem' }}>
+                  Billing & Invoicing
+                </h1>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '1.1rem' }}>
+                  Issue consultation bills and manage patient invoices.
+                </p>
+              </div>
+              <button className="btn btn-primary" onClick={() => setShowBillingModal(true)}>
+                <PlusCircle size={18} /> Issue New Bill
+              </button>
+            </div>
+
+            <div className="glass-panel" style={{ background: 'white', padding: '3rem', textAlign: 'center', borderRadius: '16px' }}>
+              <p style={{ color: 'var(--text-secondary)', margin: 0 }}>
+                Click "Issue New Bill" to generate an invoice for a patient by entering their 14-digit Health ID.
+              </p>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Registration Modal */}
@@ -302,6 +357,55 @@ export default function ReceptionistDashboard() {
           </div>
         </div>
       )}
+
+      {/* Billing Invoice Modal */}
+      {showBillingModal && (
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div className="glass-panel" style={{ background: 'white', padding: '2.5rem', width: '500px', borderRadius: '16px' }}>
+            <h2 style={{ marginBottom: '1.5rem', color: '#000' }}>Generate Patient Invoice</h2>
+            <form onSubmit={handleCreateInvoice}>
+              <div className="input-group">
+                <label className="input-label">Patient Health ID (14-Digit)</label>
+                <input
+                  className="input-field"
+                  placeholder="e.g. 91-4820-1934-8851"
+                  value={invoiceData.health_id}
+                  onChange={e => setInvoiceData({...invoiceData, health_id: e.target.value})}
+                  required
+                />
+              </div>
+              <div className="input-group">
+                <label className="input-label">Description / Service</label>
+                <input
+                  className="input-field"
+                  value={invoiceData.description}
+                  onChange={e => setInvoiceData({...invoiceData, description: e.target.value})}
+                  required
+                />
+              </div>
+              <div className="input-group">
+                <label className="input-label">Amount ($ USD)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  className="input-field"
+                  value={invoiceData.amount}
+                  onChange={e => setInvoiceData({...invoiceData, amount: e.target.value})}
+                  required
+                />
+              </div>
+              
+              <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>
+                <button type="button" className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setShowBillingModal(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary" style={{ flex: 1, background: 'var(--accent-blue)' }} disabled={loading}>
+                  {loading ? 'Issuing Bill...' : 'Generate Invoice'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+

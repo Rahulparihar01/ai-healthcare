@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { LanguageProvider } from './context/LanguageContext';
 import Login from './components/Login';
 import DoctorDashboard from './components/DoctorDashboard';
 import Register from './components/Register';
@@ -10,7 +11,9 @@ import HospitalAdminDashboard from './components/HospitalAdminDashboard';
 import ReceptionistDashboard from './components/ReceptionistDashboard';
 import PatientDashboard from './components/PatientDashboard';
 import LabTechnicianDashboard from './components/LabTechnicianDashboard';
+import OfflineIndicator from './components/OfflineIndicator';
 import './index.css';
+
 
 // A simple wrapper to protect routes
 const ProtectedRoute = ({ children, allowedRoles }) => {
@@ -111,10 +114,13 @@ function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
+        <OfflineIndicator />
         <AppRoutes />
       </BrowserRouter>
     </AuthProvider>
   );
 }
+
+
 
 export default App;

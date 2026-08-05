@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import Dict, Any, List, Optional
 
 from database import get_db
@@ -18,9 +18,8 @@ class HospitalCreate(BaseModel):
     settings: Dict[str, Any] = {}
 
 class HospitalResponse(HospitalCreate):
+    model_config = ConfigDict(from_attributes=True)
     id: int
-    class Config:
-        from_attributes = True
 
 @router.post("/create", response_model=HospitalResponse, status_code=status.HTTP_201_CREATED)
 def create_hospital(

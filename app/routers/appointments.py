@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, and_
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import List, Optional
 from datetime import datetime, timedelta
 
@@ -21,6 +21,8 @@ class AppointmentCreate(BaseModel):
     notes: Optional[str] = None
 
 class AppointmentResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     patient_id: int
     doctor_id: int
@@ -29,9 +31,6 @@ class AppointmentResponse(BaseModel):
     end_time: Optional[datetime]
     status: str
     notes: Optional[str]
-    
-    class Config:
-        from_attributes = True
 
 @router.post("/create", response_model=AppointmentResponse)
 def create_appointment(
@@ -116,7 +115,7 @@ def list_appointments(
 @router.put("/{id}/status")
 def update_appointment_status(
     id: int,
-    status: str = Query(..., regex="^(Scheduled|Completed|Cancelled|No-Show)$"),
+    status: str = Query(..., pattern="^(Scheduled|Completed|Cancelled|No-Show)$"),
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):

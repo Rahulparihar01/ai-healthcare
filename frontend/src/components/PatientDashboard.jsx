@@ -1,13 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { User, FileText, QrCode, Activity, Heart, ShieldAlert, Edit2 } from 'lucide-react';
+import { User, FileText, QrCode, Activity, Heart, ShieldAlert, Edit2, CreditCard, Receipt, CheckCircle } from 'lucide-react';
 import api from '../api';
 import Timeline from './Timeline';
+import PaymentModal from './PaymentModal';
 
 export default function PatientDashboard() {
   const { user, logout } = useAuth();
   const [activeTab, setActiveTab] = useState('profile');
   const [profile, setProfile] = useState(null);
+  const [invoices, setInvoices] = useState([]);
+  const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showEditModal, setShowEditModal] = useState(false);
 
@@ -21,6 +24,12 @@ export default function PatientDashboard() {
     fetchProfile();
   }, []);
 
+  useEffect(() => {
+    if (profile && activeTab === 'billing') {
+      fetchInvoices();
+    }
+  }, [profile, activeTab]);
+
   const fetchProfile = async () => {
     try {
       const res = await api.get('/patients/profile');
@@ -32,6 +41,16 @@ export default function PatientDashboard() {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchInvoices = async () => {
+    if (!profile) return;
+    try {
+      const res = await api.get(`/billing/invoices/patient/${profile.health_id}`);
+      setInvoices(res.data);
+    } catch (error) {
+      console.error("Error fetching patient invoices:", error);
     }
   };
 
@@ -83,6 +102,10 @@ export default function PatientDashboard() {
           <div className={`nav-item ${activeTab === 'records' ? 'active' : ''}`} onClick={() => setActiveTab('records')}>
             <FileText size={20} />
             Medical Records
+          </div>
+          <div className={`nav-item ${activeTab === 'billing' ? 'active' : ''}`} onClick={() => setActiveTab('billing')}>
+            <CreditCard size={20} />
+            Invoices & Billing
           </div>
           <div className={`nav-item ${activeTab === 'vitals' ? 'active' : ''}`} onClick={() => setActiveTab('vitals')}>
             <Activity size={20} />
@@ -207,6 +230,71 @@ export default function PatientDashboard() {
           </>
         ) : profile && activeTab === 'records' ? (
            <Timeline healthId={profile.health_id} />
+        ) : profile && activeTab === 'billing' ? (
+          <div>
+            <div style={{ marginBottom: '2rem' }}>
+              <h1 style={{ fontSize: '2rem', fontWeight: 600, color: '#000', marginBottom: '0.25rem' }}>
+                Invoices & Payment Receipts
+              </h1>
+              <p style={{ color: 'var(--text-secondary)' }}>
+                View outstanding consultation bills and download digitally signed receipts.
+              </p>
+            </div>
+
+            {invoices.length === 0 ? (
+              <div className="glass-panel" style={{ background: 'white', padding: '3rem', textAlign: 'center', borderRadius: '16px', color: 'var(--text-secondary)' }}>
+                No invoices found for your account.
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                {invoices.map((inv) => (
+                  <div key={inv.id} className="glass-panel" style={{ background: 'white', padding: '1.5rem 2rem', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', border: '1px solid var(--border-light)' }}>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.25rem' }}>
+                        <span style={{ fontWeight: 600, fontSize: '1.1rem', color: '#000' }}>#{inv.invoice_number}</span>
+                        <span style={{
+                          padding: '0.2rem 0.6rem',
+                          borderRadius: '9999px',
+                          fontSize: '0.75rem',
+                          fontWeight: 600,
+                          backgroundColor: inv.status === 'Paid' ? '#dcfce7' : '#fef3c7',
+                          color: inv.status === 'Paid' ? '#166534' : '#92400e'
+                        }}>
+                          {inv.status}
+                        </span>
+                      </div>
+                      <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', margin: 0 }}>
+                        {inv.description || 'Medical Services'} • Due: {inv.due_date ? new Date(inv.due_date).toLocaleDateString() : 'N/A'}
+                      </p>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+                      <span style={{ fontSize: '1.25rem', fontWeight: 700, color: '#000' }}>
+                        ${(inv.amount / 100).toFixed(2)}
+                      </span>
+                      {inv.status === 'Unpaid' ? (
+                        <button
+                          className="btn btn-primary"
+                          style={{ backgroundColor: '#0284c7', color: 'white', padding: '0.6rem 1.25rem', borderRadius: '10px' }}
+                          onClick={() => setSelectedInvoice(inv)}
+                        >
+                          Pay Now
+                        </button>
+                      ) : (
+                        <button
+                          className="btn btn-secondary"
+                          style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1.25rem', borderRadius: '10px' }}
+                          onClick={() => setSelectedInvoice(inv)}
+                        >
+                          <Receipt size={16} /> Receipt
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         ) : (
            <div style={{ color: 'var(--text-secondary)' }}>Section under construction.</div>
         )}
@@ -245,6 +333,18 @@ export default function PatientDashboard() {
           </div>
         </div>
       )}
+
+      {/* Payment Gateway Modal */}
+      {selectedInvoice && (
+        <PaymentModal
+          invoice={selectedInvoice}
+          onClose={() => setSelectedInvoice(null)}
+          onSuccess={() => {
+            fetchInvoices();
+          }}
+        />
+      )}
     </div>
   );
 }
+

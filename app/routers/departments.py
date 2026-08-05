@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from database import get_db
 import models
@@ -15,14 +15,13 @@ class DepartmentCreate(BaseModel):
     description: str | None = None
 
 class DepartmentResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     hospital_id: int
     name: str
     description: str | None
     is_active: bool
-
-    class Config:
-        from_attributes = True
 
 @router.post("/", response_model=DepartmentResponse, status_code=status.HTTP_201_CREATED)
 def create_department(
@@ -34,7 +33,7 @@ def create_department(
     if not db_hospital:
         raise HTTPException(status_code=404, detail="Hospital not found")
         
-    db_department = models.Department(**department.dict())
+    db_department = models.Department(**department.model_dump())
     db.add(db_department)
     db.commit()
     db.refresh(db_department)

@@ -210,7 +210,19 @@ async def upload_report(
         raise HTTPException(status_code=404, detail="Patient not found")
 
     if not file.filename.endswith((".pdf", ".jpg", ".png", ".jpeg")):
-        raise HTTPException(status_code=400, detail="Invalid file format.")
+        raise HTTPException(status_code=400, detail="Invalid file format extension.")
+    
+    content = await file.read()
+    if len(content) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="File size exceeds maximum 10MB limit.")
+        
+    # Magic bytes check for security
+    if file.filename.endswith(".pdf") and not content.startswith(b"%PDF"):
+        raise HTTPException(status_code=400, detail="Corrupted or invalid PDF header signature.")
+    elif file.filename.endswith((".jpg", ".jpeg")) and not content.startswith(b"\xff\xd8"):
+        raise HTTPException(status_code=400, detail="Corrupted or invalid JPEG header signature.")
+    elif file.filename.endswith(".png") and not content.startswith(b"\x89PNG"):
+        raise HTTPException(status_code=400, detail="Corrupted or invalid PNG header signature.")
     
     upload_dir = os.path.join(os.path.dirname(__file__), "..", "private", "uploads")
     os.makedirs(upload_dir, exist_ok=True)
@@ -393,10 +405,27 @@ def update_record(
     if patient:
         verify_patient_access(patient, current_user, db)
         
+    def serialize_col(val):
+        return val.isoformat() if isinstance(val, datetime) else val
+
+    old_data = {col.name: serialize_col(getattr(record, col.name, None)) for col in record.__table__.columns}
+
     for key, value in data.items():
         if hasattr(record, key):
             setattr(record, key, value)
             
+    new_data = {col.name: serialize_col(getattr(record, col.name, None)) for col in record.__table__.columns}
+
+    # Log Record Revision for clinical auditing
+    revision = models.RecordRevision(
+        record_id=reference_id,
+        changed_by_user_id=current_user.id,
+        previous_data=old_data,
+        new_data=new_data,
+        change_reason=data.get("change_reason", f"Updated {event_type} fields")
+    )
+    db.add(revision)
+
     # Optionally append an updated event to the timeline
     timeline_event = models.TimelineEvent(
         patient_id=record.patient_id,
@@ -409,6 +438,7 @@ def update_record(
     
     db.commit()
     return {"message": "Record updated successfully"}
+
 
 class CompareRequest(BaseModel):
     doc1_id: int

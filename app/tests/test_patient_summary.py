@@ -15,7 +15,7 @@ from models import User, PatientProfile, Disease, Medication, Allergy, LabResult
 # Assuming SQLite in-memory for testing, or similar setup
 SQLALCHEMY_DATABASE_URL = "sqlite:///./test_patient_summary.db"
 engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
-TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine, expire_on_commit=False)
 
 def override_get_db():
     try:

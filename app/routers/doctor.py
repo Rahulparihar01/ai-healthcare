@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List, Dict, Any
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from database import get_db
 import models
@@ -20,6 +20,8 @@ class DoctorCreate(BaseModel):
     availability: Dict[str, Any] = {}
 
 class DoctorResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     user_id: int
     hospital_id: int
@@ -30,9 +32,6 @@ class DoctorResponse(BaseModel):
     consultation_fee: int | None
     availability: Dict[str, Any]
     status: str
-
-    class Config:
-        from_attributes = True
 
 @router.post("/onboard", response_model=DoctorResponse, status_code=status.HTTP_201_CREATED)
 def onboard_doctor(
@@ -68,7 +67,7 @@ def onboard_doctor(
     if existing_doctor:
         raise HTTPException(status_code=400, detail="User is already onboarded as a doctor")
 
-    db_doctor = models.DoctorProfile(**doctor.dict())
+    db_doctor = models.DoctorProfile(**doctor.model_dump())
     db.add(db_doctor)
     
     # Update user role to Doctor

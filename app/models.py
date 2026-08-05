@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime, JSON
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime, JSON, Index
 from sqlalchemy.orm import relationship, declared_attr
 from database import Base
 import enum
@@ -117,6 +117,9 @@ class UserDevice(Base):
 
 class AuditLog(Base):
     __tablename__ = "audit_logs"
+    __table_args__ = (
+        Index("idx_audit_user_time", "user_id", "timestamp"),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
@@ -284,6 +287,9 @@ class FileRecord(Base, AuditableMixin):
 
 class Appointment(Base, AuditableMixin):
     __tablename__ = "appointments"
+    __table_args__ = (
+        Index("idx_appointment_doctor_time", "doctor_id", "start_time"),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     patient_id = Column(Integer, ForeignKey("patient_profiles.id"))
@@ -402,6 +408,9 @@ class MedicalDocument(Base, AuditableMixin):
 
 class TimelineEvent(Base, AuditableMixin):
     __tablename__ = "timeline_events"
+    __table_args__ = (
+        Index("idx_timeline_patient_date", "patient_id", "event_date"),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     patient_id = Column(Integer, ForeignKey("patient_profiles.id"))
@@ -517,7 +526,7 @@ class RolePermission(Base, AuditableMixin):
     __tablename__ = "role_permissions"
 
     id = Column(Integer, primary_key=True, index=True)
-    role_id = Column(String, index=True) # References RoleEnum value
+    role = Column(String, index=True) # References RoleEnum value e.g. "Doctor"
     permission_id = Column(Integer, ForeignKey("permissions.id"))
     
     permission = relationship("Permission")
@@ -584,3 +593,75 @@ class EmergencyAccess(Base, AuditableMixin):
     patient = relationship("PatientProfile")
     provider = relationship("User", foreign_keys=[provider_id])
     approver = relationship("User", foreign_keys=[approved_by])
+
+
+# --- PHASE 7: BILLING & PAYMENT MODELS ---
+
+class Invoice(Base, AuditableMixin):
+    __tablename__ = "invoices"
+    __table_args__ = (
+        Index("idx_invoice_patient_status", "patient_id", "status"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    invoice_number = Column(String, unique=True, index=True)
+    patient_id = Column(Integer, ForeignKey("patient_profiles.id"))
+    hospital_id = Column(Integer, ForeignKey("hospitals.id"), nullable=True)
+    doctor_id = Column(Integer, ForeignKey("doctor_profiles.id"), nullable=True)
+    visit_id = Column(Integer, ForeignKey("visits.id"), nullable=True)
+    
+    amount = Column(Integer) # Amount in cents / smallest currency unit
+    currency = Column(String, default="USD")
+    status = Column(String, default="Unpaid") # Unpaid, Paid, Refunded, Cancelled
+    
+    description = Column(String, nullable=True)
+    line_items = Column(JSON, default=[])
+    
+    due_date = Column(DateTime, nullable=True)
+    paid_at = Column(DateTime, nullable=True)
+    payment_method = Column(String, nullable=True) # Stripe, Razorpay, Cash, Card
+    receipt_signature = Column(String, nullable=True)
+
+    patient = relationship("PatientProfile")
+    hospital = relationship("Hospital")
+    doctor = relationship("DoctorProfile")
+    visit = relationship("Visit")
+    transactions = relationship("PaymentTransaction", back_populates="invoice", cascade="all, delete-orphan")
+
+class PaymentTransaction(Base, AuditableMixin):
+    __tablename__ = "payment_transactions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    invoice_id = Column(Integer, ForeignKey("invoices.id"))
+    gateway = Column(String, default="Stripe")
+    gateway_transaction_id = Column(String, nullable=True, index=True)
+    payment_intent_id = Column(String, nullable=True)
+    
+    amount = Column(Integer)
+    currency = Column(String, default="USD")
+    status = Column(String, default="Pending") # Pending, Success, Failed, Refunded
+    gateway_response = Column(JSON, default={})
+
+    invoice = relationship("Invoice", back_populates="transactions")
+
+
+ 
+
+# --- PHASE 9: RECORD REVISIONS ---
+
+class RecordRevision(Base):
+    __tablename__ = "record_revisions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    record_id = Column(Integer, ForeignKey("medical_documents.id"))
+    changed_by_user_id = Column(Integer, ForeignKey("users.id"))
+    previous_data = Column(JSON)
+    new_data = Column(JSON)
+    change_reason = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    record = relationship("MedicalDocument")
+    changed_by = relationship("User")
+
+
+

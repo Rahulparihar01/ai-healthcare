@@ -186,7 +186,7 @@ def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db
 
 @router.post("/refresh", response_model=TokenResponse)
 def refresh_token(request: RefreshRequest, db: Session = Depends(get_db)):
-    from auth import create_access_token
+    from auth import create_access_token, create_refresh_token, REFRESH_TOKEN_EXPIRE_DAYS
     db_token = db.query(models.RefreshToken).filter(
         models.RefreshToken.token == request.refresh_token,
         models.RefreshToken.is_revoked == False
@@ -196,10 +196,38 @@ def refresh_token(request: RefreshRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
         
     user = db.query(models.User).filter(models.User.id == db_token.user_id).first()
+    
+    # Revoke old token and rotate
+    db_token.is_revoked = True
+    
+    new_refresh_str = create_refresh_token()
+    expires = datetime.utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+    new_token = models.RefreshToken(
+        token=new_refresh_str,
+        user_id=user.id,
+        expires_at=expires
+    )
+    db.add(new_token)
+    db.commit()
+
     access_token = create_access_token(data={"sub": user.username})
     
     return {
         "access_token": access_token,
-        "refresh_token": request.refresh_token,
+        "refresh_token": new_refresh_str,
         "token_type": "bearer"
     }
+
+@router.post("/logout")
+def logout(request: RefreshRequest, db: Session = Depends(get_db)):
+    """Revoke refresh token and log out session."""
+    db_token = db.query(models.RefreshToken).filter(
+        models.RefreshToken.token == request.refresh_token
+    ).first()
+    
+    if db_token:
+        db_token.is_revoked = True
+        db.commit()
+        
+    return {"message": "Logged out successfully"}
+

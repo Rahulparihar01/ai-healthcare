@@ -58,4 +58,4 @@ dist-ssr/
 
 # Project specific
 public/uploads
-public/qrcodes
+app/public/qrcodes
