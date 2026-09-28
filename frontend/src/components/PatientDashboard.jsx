@@ -62,7 +62,7 @@ export default function PatientDashboard() {
         blood_group: formData.blood_group,
         emergency_contact_name: formData.emergency_contact_name,
         emergency_contact_phone: formData.emergency_contact_phone,
-        allergies: formData.allergies ? formData.allergies.split(',').map(a => a.trim()) : []
+        known_allergies: formData.allergies ? formData.allergies.split(',').map(a => a.trim()).filter(Boolean) : []
       };
       
       const res = await api.put(`/patients/${profile.health_id}`, updateData);

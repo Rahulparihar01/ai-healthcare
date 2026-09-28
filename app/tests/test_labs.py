@@ -53,3 +53,8 @@ def test_pending_labs_and_completion(client: TestClient, db):
     # 3. Test it's no longer in pending list
     res_after = client.get("/labs/pending", headers=headers)
     assert not any(o["id"] == order.id for o in res_after.json())
+
+    # 4. Test it appears in history
+    res_history = client.get("/labs/history", headers=headers)
+    assert res_history.status_code == 200
+    assert any(o["id"] == order.id for o in res_history.json())

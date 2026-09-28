@@ -113,10 +113,12 @@ function AppRoutes() {
 function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
-        <OfflineIndicator />
-        <AppRoutes />
-      </BrowserRouter>
+      <LanguageProvider>
+        <BrowserRouter>
+          <OfflineIndicator />
+          <AppRoutes />
+        </BrowserRouter>
+      </LanguageProvider>
     </AuthProvider>
   );
 }

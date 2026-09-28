@@ -33,8 +33,8 @@ DEFAULT_ROLE_PERMISSIONS = {
     "lab_result.view": [RoleEnum.SUPER_ADMIN, RoleEnum.HOSPITAL_ADMIN, RoleEnum.DOCTOR, RoleEnum.LAB_TECHNICIAN, RoleEnum.PATIENT],
 
     # Documents
-    "document.upload": [RoleEnum.SUPER_ADMIN, RoleEnum.DOCTOR, RoleEnum.PATIENT],
-    "document.view": [RoleEnum.SUPER_ADMIN, RoleEnum.HOSPITAL_ADMIN, RoleEnum.DOCTOR, RoleEnum.PATIENT],
+    "document.upload": [RoleEnum.SUPER_ADMIN, RoleEnum.DOCTOR, RoleEnum.PATIENT, RoleEnum.LAB_TECHNICIAN],
+    "document.view": [RoleEnum.SUPER_ADMIN, RoleEnum.HOSPITAL_ADMIN, RoleEnum.DOCTOR, RoleEnum.PATIENT, RoleEnum.LAB_TECHNICIAN],
     
     # Billing
     "invoice.create": [RoleEnum.SUPER_ADMIN, RoleEnum.HOSPITAL_ADMIN, RoleEnum.RECEPTIONIST],
@@ -58,6 +58,10 @@ DEFAULT_ROLE_PERMISSIONS = {
     "facility.read": [RoleEnum.SUPER_ADMIN, RoleEnum.HOSPITAL_ADMIN, RoleEnum.DOCTOR],
     "doctor.onboard": [RoleEnum.SUPER_ADMIN, RoleEnum.HOSPITAL_ADMIN],
     "admin.seed": [RoleEnum.SUPER_ADMIN],
+
+    # Audit Trail
+    "audit.read": [RoleEnum.SUPER_ADMIN, RoleEnum.HOSPITAL_ADMIN],
+    "audit.export": [RoleEnum.SUPER_ADMIN, RoleEnum.HOSPITAL_ADMIN],
 }
 
 def get_model_attr(obj, attr_name, default=None):

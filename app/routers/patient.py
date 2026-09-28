@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Dict, Any, List, Optional
@@ -205,12 +205,21 @@ def get_patient_profile(
 
 @router.put("/update", response_model=PatientProfileResponse)
 def update_patient_profile(
-    health_id: str,
     update_data: PatientProfileUpdate,
+    health_id: Optional[str] = Query(None),
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
-    profile = db.query(models.PatientProfile).filter(models.PatientProfile.health_id == health_id).first()
+    target_hid = health_id
+    if not target_hid and current_user.role == models.RoleEnum.PATIENT.value:
+        my_profile = db.query(models.PatientProfile).filter(models.PatientProfile.user_id == current_user.id).first()
+        if my_profile:
+            target_hid = my_profile.health_id
+            
+    if not target_hid:
+        raise HTTPException(status_code=400, detail="health_id query parameter is required")
+
+    profile = db.query(models.PatientProfile).filter(models.PatientProfile.health_id == target_hid).first()
     if not profile:
         raise HTTPException(status_code=404, detail="Patient not found")
         
@@ -225,6 +234,15 @@ def update_patient_profile(
     db.commit()
     db.refresh(profile)
     return profile
+
+@router.put("/{health_id}", response_model=PatientProfileResponse)
+def update_patient_profile_by_id(
+    health_id: str,
+    update_data: PatientProfileUpdate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    return update_patient_profile(health_id=health_id, update_data=update_data, db=db, current_user=current_user)
 
 @router.post("/register", response_model=PatientProfileResponse, status_code=status.HTTP_201_CREATED)
 def register_patient_full(

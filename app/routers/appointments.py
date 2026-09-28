@@ -123,6 +123,24 @@ def update_appointment_status(
     if not apt:
         raise HTTPException(status_code=404, detail="Appointment not found")
         
+    if current_user.role == models.RoleEnum.SUPER_ADMIN.value:
+        pass
+    elif current_user.role == models.RoleEnum.HOSPITAL_ADMIN.value or current_user.role == models.RoleEnum.RECEPTIONIST.value:
+        if apt.hospital_id and current_user.hospital_id and apt.hospital_id != current_user.hospital_id:
+            raise HTTPException(status_code=403, detail="Not authorized to update appointments for other hospitals")
+    elif current_user.role == models.RoleEnum.DOCTOR.value:
+        doctor_profile = db.query(models.DoctorProfile).filter(models.DoctorProfile.user_id == current_user.id).first()
+        if not doctor_profile or apt.doctor_id != doctor_profile.id:
+            raise HTTPException(status_code=403, detail="Not authorized to modify this appointment")
+    elif current_user.role == models.RoleEnum.PATIENT.value:
+        patient_profile = db.query(models.PatientProfile).filter(models.PatientProfile.user_id == current_user.id).first()
+        if not patient_profile or apt.patient_id != patient_profile.id:
+            raise HTTPException(status_code=403, detail="Not authorized to modify this appointment")
+        if status != "Cancelled":
+            raise HTTPException(status_code=403, detail="Patients can only cancel their own appointments")
+    else:
+        raise HTTPException(status_code=403, detail="Not authorized to update appointment status")
+
     apt.status = status
     db.commit()
     return {"message": f"Appointment status updated to {status}"}

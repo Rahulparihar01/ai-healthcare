@@ -12,6 +12,8 @@ from ai_pipeline.predictive_engine import (
 
 router = APIRouter(prefix="/predict", tags=["Predictive Analytics"])
 
+from datetime import datetime
+
 def _get_patient_data(health_id: str, db: Session):
     patient = db.query(models.PatientProfile).filter(models.PatientProfile.health_id == health_id).first()
     if not patient:
@@ -20,8 +22,20 @@ def _get_patient_data(health_id: str, db: Session):
     diseases = db.query(models.Disease).filter(models.Disease.patient_id == patient.id).all()
     medications = db.query(models.Medication).filter(models.Medication.patient_id == patient.id).all()
     
+    age = 45  # fallback if DOB missing
+    if patient.dob:
+        try:
+            clean_dob = patient.dob.strip()[:10]
+            dob_date = datetime.strptime(clean_dob, "%Y-%m-%d").date()
+            today = datetime.utcnow().date()
+            calculated_age = today.year - dob_date.year - ((today.month, today.day) < (dob_date.month, dob_date.day))
+            if 0 <= calculated_age <= 130:
+                age = calculated_age
+        except Exception:
+            pass
+
     return {
-        "age": 45, # Mock age
+        "age": age,
         "gender": patient.gender,
         "diseases": [d.disease_name for d in diseases if d.status == "Chronic"],
         "medications": [m.medicine_name for m in medications if m.status == "Active"]

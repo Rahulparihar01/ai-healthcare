@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
+import api from '../../api';
+
 interface BiomarkerResult {
   id: number;
   biomarker_name: string;
@@ -22,19 +24,14 @@ const BiomarkerTrendChart: React.FC<Props> = ({ healthId, biomarker }) => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const response = await fetch(`/api/v1/timeline/${healthId}/biomarkers?biomarker=${encodeURIComponent(biomarker)}`, {
-          headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-        });
-        if (response.ok) {
-          const results: BiomarkerResult[] = await response.json();
-          // Format data for Recharts
-          const chartData = results.map(r => ({
-            date: new Date(r.recorded_at).toLocaleDateString(),
-            value: parseFloat(r.value),
-            unit: r.unit
-          }));
-          setData(chartData);
-        }
+        const response = await api.get(`/timeline/${healthId}/biomarkers?biomarker=${encodeURIComponent(biomarker)}`);
+        const results: BiomarkerResult[] = response.data;
+        const chartData = results.map(r => ({
+          date: new Date(r.recorded_at).toLocaleDateString(),
+          value: parseFloat(r.value),
+          unit: r.unit
+        }));
+        setData(chartData);
       } catch (err) {
         console.error("Failed to fetch biomarker data", err);
       } finally {

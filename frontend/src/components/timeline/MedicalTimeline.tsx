@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import api from '../../api';
 
 interface TimelineEvent {
   id: number;
@@ -18,13 +19,8 @@ const MedicalTimeline: React.FC<{ healthId: string }> = ({ healthId }) => {
     const fetchTimeline = async () => {
       try {
         const queryParam = diseaseKeyword ? `?disease_keyword=${encodeURIComponent(diseaseKeyword)}` : '';
-        const response = await fetch(`/api/v1/timeline/${healthId}${queryParam}`, {
-          headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-        });
-        if (response.ok) {
-          const data = await response.json();
-          setEvents(data);
-        }
+        const response = await api.get(`/timeline/${healthId}${queryParam}`);
+        setEvents(response.data || []);
       } catch (err) {
         console.error("Failed to fetch timeline", err);
       } finally {

@@ -15,20 +15,33 @@ import models
 from auth import get_current_user, SECRET_KEY
 from auth_middleware import require_permission
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'ai_pipeline')))
-from copilot_engine import compare_medical_reports, auto_assign_icd10
-from embeddings import generate_embedding
-
-# Import the extractor from the ai_pipeline (with fallback)
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'ai_pipeline')))
 try:
-    from extractor import extract_information
-    from worker import process_document_background
+    from ai_pipeline.copilot_engine import compare_medical_reports, auto_assign_icd10
+    from ai_pipeline.embeddings import generate_embedding
+    from ai_pipeline.extractor import extract_information
+    from ai_pipeline.worker import process_document_background
 except ImportError:
-    def extract_information(path):
-        return {"error": "Could not load extractor module.", "report_category": "Unknown"}
-    def process_document_background(record_id, record_type, file_path):
-        pass
+    sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'ai_pipeline')))
+    try:
+        # pyrefly: ignore [missing-import]
+        from copilot_engine import compare_medical_reports, auto_assign_icd10
+        # pyrefly: ignore [missing-import]
+        from embeddings import generate_embedding
+        # pyrefly: ignore [missing-import]
+        from extractor import extract_information
+        # pyrefly: ignore [missing-import]
+        from worker import process_document_background
+    except ImportError:
+        def extract_information(path):
+            return {"error": "Could not load extractor module.", "report_category": "Unknown"}
+        def process_document_background(record_id, record_type, file_path):
+            pass
+        async def generate_embedding(text):
+            return None
+        async def compare_medical_reports(report_a, report_b):
+            return "Comparison unavailable"
+        async def auto_assign_icd10(condition_name, notes):
+            return "R69"
 
 def verify_patient_access(patient: models.PatientProfile, current_user: models.User, db: Session):
     if current_user.role == models.RoleEnum.SUPER_ADMIN.value or current_user.role == models.RoleEnum.HOSPITAL_ADMIN.value:
@@ -232,7 +245,6 @@ async def upload_report(
     
     try:
         with open(file_path, "wb") as buffer:
-            content = await file.read()
             buffer.write(content)
             
         created_id = None

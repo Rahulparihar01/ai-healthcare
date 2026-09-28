@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import api from '../../api';
 
 interface Medication {
   name: string;
@@ -30,22 +31,11 @@ const PrescriptionAssistant: React.FC<Props> = ({ healthId, proposedMedications 
     const checkSafety = async () => {
       setIsChecking(true);
       try {
-        const response = await fetch('/api/v1/copilot/check-prescription', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          },
-          body: JSON.stringify({
-            health_id: healthId,
-            proposed_medications: proposedMedications
-          })
+        const response = await api.post('/copilot/check-prescription', {
+          health_id: healthId,
+          proposed_medications: proposedMedications
         });
-
-        if (response.ok) {
-          const data = await response.json();
-          setWarnings(data);
-        }
+        setWarnings(response.data || []);
       } catch (error) {
         console.error("Failed to check prescription", error);
       } finally {

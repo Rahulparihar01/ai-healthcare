@@ -9,11 +9,12 @@ from datetime import datetime
 
 class AuditMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
-        # We want to log access to PHI routes (e.g. /records, /patient, /appointments)
-        phi_prefixes = ["/records", "/patient", "/appointments"]
+        # We want to log access to PHI routes (e.g. /records, /patient, /appointments, /labs, etc.)
+        phi_prefixes = ["/records", "/patient", "/patients", "/appointments", "/labs", "/billing", "/copilot", "/timeline", "/search"]
         
         path = request.url.path
-        is_phi_route = any(path.startswith(prefix) for prefix in phi_prefixes)
+        clean_path = path[7:] if path.startswith("/api/v1") else path
+        is_phi_route = any(clean_path.startswith(prefix) for prefix in phi_prefixes)
         
         # Proceed with the request
         response = await call_next(request)

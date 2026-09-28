@@ -7,6 +7,7 @@ from database import get_db
 import models
 from auth import RequireRole, get_current_user
 from ai_pipeline.embeddings import generate_embedding
+from routers.records import verify_patient_access
 
 router = APIRouter(prefix="/search", tags=["Semantic Search"])
 
@@ -22,15 +23,23 @@ async def semantic_search(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
-    query_embedding = await generate_embedding(query)
-    
-    stmt = select(models.TimelineEvent)
-    
-    if health_id:
+    profile = None
+    if current_user.role == models.RoleEnum.PATIENT.value:
+        profile = db.query(models.PatientProfile).filter(models.PatientProfile.user_id == current_user.id).first()
+        if not profile:
+            raise HTTPException(status_code=404, detail="Patient profile not found")
+        if health_id and profile.health_id != health_id:
+            raise HTTPException(status_code=403, detail="Not authorized to search other patients' records")
+    elif health_id:
         profile = db.query(models.PatientProfile).filter(models.PatientProfile.health_id == health_id).first()
         if not profile:
             raise HTTPException(status_code=404, detail="Patient not found")
-        stmt = stmt.filter(models.TimelineEvent.patient_id == profile.id)
+        verify_patient_access(profile, current_user, db)
+    else:
+        raise HTTPException(status_code=400, detail="health_id parameter is required for semantic search")
+
+    query_embedding = await generate_embedding(query)
+    stmt = select(models.TimelineEvent).filter(models.TimelineEvent.patient_id == profile.id)
         
     if event_type:
         stmt = stmt.filter(models.TimelineEvent.event_type.ilike(f"%{event_type}%"))

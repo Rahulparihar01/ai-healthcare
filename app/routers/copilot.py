@@ -104,6 +104,12 @@ async def copilot_chat(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
+    patient = db.query(models.PatientProfile).filter(models.PatientProfile.health_id == request.health_id).first()
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient not found")
+    from routers.records import verify_patient_access
+    verify_patient_access(patient, current_user, db)
+
     from routers.search import semantic_search
     # Fetch top 3 relevant records using semantic search
     context_records = await semantic_search(query=request.query, health_id=request.health_id, limit=3, db=db, current_user=current_user)
@@ -169,6 +175,12 @@ async def patient_chat(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
+    patient = db.query(models.PatientProfile).filter(models.PatientProfile.health_id == request.health_id).first()
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient not found")
+    from routers.records import verify_patient_access
+    verify_patient_access(patient, current_user, db)
+
     from routers.search import semantic_search
     # Fetch top 3 relevant records using semantic search
     context_records = await semantic_search(query=request.query, health_id=request.health_id, limit=3, db=db, current_user=current_user)
